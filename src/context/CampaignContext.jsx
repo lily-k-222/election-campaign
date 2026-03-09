@@ -17,18 +17,22 @@ export const CampaignProvider = ({ children }) => {
             const contactsRef = collection(db, 'contacts');
             const snap = await getDocs(contactsRef);
             if (snap.empty) {
-                const batch = writeBatch(db);
-                contactsData.forEach(c => {
-                    const docRef = doc(db, 'contacts', c.id);
-                    batch.set(docRef, {
-                        ...c,
-                        status: c.status || 'UNASSIGNED',
-                        surveyResult: c.surveyResult || null,
-                        notes: c.notes || '',
-                        assignedTo: c.assignedTo || null
+                const chunkSize = 450;
+                for (let i = 0; i < contactsData.length; i += chunkSize) {
+                    const chunk = contactsData.slice(i, i + chunkSize);
+                    const batch = writeBatch(db);
+                    chunk.forEach(c => {
+                        const docRef = doc(db, 'contacts', c.id);
+                        batch.set(docRef, {
+                            ...c,
+                            status: c.status || 'UNASSIGNED',
+                            surveyResult: c.surveyResult || null,
+                            notes: c.notes || '',
+                            assignedTo: c.assignedTo || null
+                        });
                     });
-                });
-                await batch.commit();
+                    await batch.commit();
+                }
             }
         };
         seedData();
