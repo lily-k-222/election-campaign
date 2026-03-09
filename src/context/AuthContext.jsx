@@ -39,7 +39,18 @@ export const AuthProvider = ({ children }) => {
                 const userDoc = await getDoc(userRef);
                 
                 if (userDoc.exists()) {
-                    setUser({ id: firebaseUser.uid, ...userDoc.data() });
+                    let userData = userDoc.data();
+                    
+                    // 관리자 긴급 복구: 지정된 이메일은 무조건 최고 관리자로 승격 (최초 1회 록인 시 UNAUTHORIZED 방지)
+                    if (
+                        (userData.email === 'soomin8454@gmail.com' || userData.email === 'wangjaelee@gmail.com') && 
+                        (userData.role !== 'SUPER_ADMIN' && userData.role !== 'ADMIN')
+                    ) {
+                        userData.role = 'SUPER_ADMIN';
+                        await updateDoc(userRef, { role: 'SUPER_ADMIN' });
+                    }
+                    
+                    setUser({ id: firebaseUser.uid, ...userData });
                 } else {
                     // Check if they are matched to a mock user by email (transitional phase)
                     const usersRef = collection(db, 'users');
@@ -54,18 +65,28 @@ export const AuthProvider = ({ children }) => {
                     if (existingUser) {
                         // Migrate them to their actual UID by cloning the document and deleting old one
                         // For simplicity in this demo, just map UID to data
+                        let assignedRole = existingUser.role;
+                        if (firebaseUser.email === 'soomin8454@gmail.com' || firebaseUser.email === 'wangjaelee@gmail.com') {
+                            assignedRole = 'SUPER_ADMIN';
+                        }
+                        
                         await setDoc(doc(db, 'users', firebaseUser.uid), {
                             email: firebaseUser.email,
                             name: firebaseUser.displayName || '이름 없음',
-                            role: existingUser.role
+                            role: assignedRole
                         });
-                        setUser({ id: firebaseUser.uid, email: firebaseUser.email, name: firebaseUser.displayName, role: existingUser.role });
+                        setUser({ id: firebaseUser.uid, email: firebaseUser.email, name: firebaseUser.displayName, role: assignedRole });
                     } else {
                         // Brand new user
+                        let assignedRole = 'UNAUTHORIZED'; // Require admin approval by default
+                        if (firebaseUser.email === 'soomin8454@gmail.com' || firebaseUser.email === 'wangjaelee@gmail.com') {
+                            assignedRole = 'SUPER_ADMIN';
+                        }
+
                         const newUser = {
                             email: firebaseUser.email,
                             name: firebaseUser.displayName || '이름 없음',
-                            role: 'UNAUTHORIZED' // Require admin approval
+                            role: assignedRole
                         };
                         await setDoc(userRef, newUser);
                         setUser({ id: firebaseUser.uid, ...newUser });
