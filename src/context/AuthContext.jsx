@@ -130,6 +130,21 @@ export const AuthProvider = ({ children }) => {
 
     const login = async () => {
         try {
+            // 인앱 브라우저(카카오톡, 네이버, 인스타그램 등) 체크
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            const isInApp = /KAKAOTALK|Instagram|NAVER|Line|Daum|MicroMessenger/i.test(userAgent);
+            
+            if (isInApp) {
+                alert("카카오톡 등 앱 내부 브라우저에서는 구글 보안 정책상 로그인이 차단됩니다.\n우측 하단(또는 상단) 메뉴(⋮)를 눌러 '다른 브라우저로 열기(Safari/Chrome)'를 선택해주세요.");
+                
+                // 안드로이드의 경우 크롬 강제 실행 시도
+                if (/android/i.test(userAgent)) {
+                    const url = window.location.href.replace(/^https?:\/\//i, '');
+                    window.location.href = `intent://${url}#Intent;scheme=https;package=com.android.chrome;end`;
+                }
+                throw new Error("IN_APP_BROWSER"); // UI 처리를 위해 에러 throw
+            }
+
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
             console.error("Login failed", error);
