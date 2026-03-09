@@ -1,56 +1,87 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { db } from '../firebase';
+import { collection, onSnapshot, doc, updateDoc, writeBatch, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import contactsData from '../data/contacts.json';
+import { useAuth } from './AuthContext';
 
 const CampaignContext = createContext();
 
-const mockContacts = contactsData;
-
 export const CampaignProvider = ({ children }) => {
-    const [contacts, setContacts] = useState(mockContacts);
+    const [contacts, setContacts] = useState([]);
+    const { user } = useAuth();
+    const [loading, setLoading] = useState(true);
+
+    // Initial setup: Seed mock data to Firestore if it's empty
+    useEffect(() => {
+        const seedData = async () => {
+            const contactsRef = collection(db, 'contacts');
+            const snap = await getDocs(contactsRef);
+            if (snap.empty) {
+                const batch = writeBatch(db);
+                contactsData.forEach(c => {
+                    const docRef = doc(db, 'contacts', c.id);
+                    batch.set(docRef, {
+                        ...c,
+                        status: c.status || 'UNASSIGNED',
+                        surveyResult: c.surveyResult || null,
+                        notes: c.notes || '',
+                        assignedTo: c.assignedTo || null
+                    });
+                });
+                await batch.commit();
+            }
+        };
+        seedData();
+    }, []);
+
+    // Listen to contacts in real-time
+    useEffect(() => {
+        if (!user) {
+            setContacts([]);
+            return;
+        }
+
+        // Ideally, volunteers should only query their own assigned contacts, 
+        // but for this prototype we fetch all to keep existing metrics logic intact.
+        const unsubscribe = onSnapshot(collection(db, 'contacts'), (snapshot) => {
+            const contactsList = [];
+            snapshot.forEach((doc) => {
+                contactsList.push({ id: doc.id, ...doc.data() });
+            });
+            setContacts(contactsList);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
 
     // Admin action: Assign a batch of unassigned contacts to a volunteer
     const assignQuota = async (volunteerId, count) => {
-        // Optimistic UI update
-        setContacts(prev => {
-            let assignedCount = 0;
-            return prev.map(contact => {
-                if (!contact.assignedTo && assignedCount < count) {
-                    assignedCount++;
-                    return { ...contact, assignedTo: volunteerId };
-                }
-                return contact;
-            });
-        });
+        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
 
-        // Sync with backend mock API
         try {
-            await fetch('/api/assign-quota', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ volunteerId, count })
+            const unassigned = contacts.filter(c => !c.assignedTo).slice(0, count);
+            const batch = writeBatch(db);
+            
+            unassigned.forEach(c => {
+                const contactRef = doc(db, 'contacts', c.id);
+                batch.update(contactRef, { assignedTo: volunteerId });
             });
+            
+            await batch.commit();
         } catch (error) {
-            console.error('Failed to sync quota assignment:', error);
+            console.error('Failed to assign quota:', error);
         }
     };
 
     // Volunteer action: Record call result
     const recordCall = async (contactId, result, notes = '') => {
-        // Optimistic UI update
-        setContacts(prev =>
-            prev.map(contact =>
-                contact.id === contactId
-                    ? { ...contact, status: 'CALLED', surveyResult: result, notes }
-                    : contact
-            )
-        );
-
-        // Sync with backend mock API
         try {
-            await fetch('/api/record-call', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contactId, result, notes })
+            const contactRef = doc(db, 'contacts', contactId);
+            await updateDoc(contactRef, {
+                status: 'CALLED',
+                surveyResult: result,
+                notes: notes
             });
         } catch (error) {
             console.error('Failed to sync call record:', error);
@@ -58,34 +89,40 @@ export const CampaignProvider = ({ children }) => {
     };
 
     // Admin action: Add a new contact
-    const addContact = (contactData) => {
-        setContacts(prev => [
-            ...prev,
-            {
+    const addContact = async (contactData) => {
+        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
+
+        try {
+            const newId = `c_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+            await setDoc(doc(db, 'contacts', newId), {
                 ...contactData,
-                id: `c_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                 status: 'UNASSIGNED',
                 surveyResult: null,
                 notes: contactData.notes || '',
                 assignedTo: null
-            }
-        ]);
+            });
+        } catch (error) {
+            console.error('Failed to add contact:', error);
+        }
     };
 
-    // Admin action: Update an existing contact
-    const updateContact = (contactId, updatedData) => {
-        setContacts(prev =>
-            prev.map(contact =>
-                contact.id === contactId
-                    ? { ...contact, ...updatedData }
-                    : contact
-            )
-        );
+    // Admin & Volunteer action: Update an existing contact
+    const updateContact = async (contactId, updatedData) => {
+        try {
+            await updateDoc(doc(db, 'contacts', contactId), updatedData);
+        } catch (error) {
+            console.error('Failed to update contact:', error);
+        }
     };
 
     // Admin action: Delete a contact
-    const deleteContact = (contactId) => {
-        setContacts(prev => prev.filter(contact => contact.id !== contactId));
+    const deleteContact = async (contactId) => {
+        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
+        try {
+            await deleteDoc(doc(db, 'contacts', contactId));
+        } catch (error) {
+            console.error('Failed to delete contact:', error);
+        }
     };
 
     const getVolunteerStats = (volunteerId) => {
@@ -129,7 +166,8 @@ export const CampaignProvider = ({ children }) => {
         updateContact,
         deleteContact,
         getVolunteerStats,
-        getCampaignStats
+        getCampaignStats,
+        loading
     };
 
     return (

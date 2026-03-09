@@ -4,12 +4,11 @@ import { Header } from './Header';
 
 export const Layout = () => {
     return (
-        <div className="container p-4 min-h-screen flex flex-col">
+        <div className="min-h-screen bg-[#e8edf2] flex flex-col font-sans">
             <Header />
-            <main className="flex-1">
+            <main className="flex-1 w-full mx-auto">
                 <Outlet />
             </main>
         </div>
     );
 };
-

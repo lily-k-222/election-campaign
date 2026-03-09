@@ -1,7 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const mockApiPlugin = () => ({
   name: 'mock-api',
@@ -53,5 +58,9 @@ const mockApiPlugin = () => ({
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), mockApiPlugin()],
+  plugins: [react(), tailwindcss(), mockApiPlugin()],
+  server: {
+    port: 5173,
+    strictPort: true
+  }
 })

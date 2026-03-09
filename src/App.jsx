@@ -33,7 +33,7 @@ function App() {
         </Route>
 
         {/* Volunteer Routes */}
-        <Route element={<ProtectedRoute allowedRoles={['VOLUNTEER']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'VOLUNTEER']} />}>
           <Route path="/volunteer" element={<VolunteerDashboard />} />
         </Route>
       </Route>
