@@ -1,25 +1,31 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/Button';
 
 export const LoginView = () => {
-    const { login } = useAuth();
+    const { login, isAuthenticated } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const [errorMsg, setErrorMsg] = useState('');
 
     const from = location.state?.from?.pathname || '/';
 
+    // Auto-redirect when AuthContext registers the user
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate(from, { replace: true });
+        }
+    }, [isAuthenticated, navigate, from]);
+
     const handleLogin = async () => {
+        setErrorMsg(''); // clear previous errors
         try {
             await login();
-            if (from !== '/') {
-                navigate(from, { replace: true });
-            } else {
-                navigate('/', { replace: true });
-            }
+            // Wait for onAuthStateChanged to trigger the useEffect above
         } catch (error) {
             console.error('Failed to login with Firebase', error);
+            setErrorMsg(error.message || '로그인 중 오류가 발생했습니다.');
         }
     };
 
