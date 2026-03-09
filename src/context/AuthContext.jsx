@@ -112,6 +112,7 @@ export const AuthProvider = ({ children }) => {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
             console.error("Login failed", error);
+            throw error; // Let the UI handle it so it doesn't redirect
         }
     };
 
