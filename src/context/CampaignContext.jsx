@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, onSnapshot, doc, updateDoc, writeBatch, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, writeBatch, setDoc, deleteDoc, getDocs, query, where, limit } from 'firebase/firestore';
 import contactsData from '../data/contacts.json';
 import { useAuth } from './AuthContext';
 
@@ -45,9 +45,17 @@ export const CampaignProvider = ({ children }) => {
             return;
         }
 
-        // Ideally, volunteers should only query their own assigned contacts, 
-        // but for this prototype we fetch all to keep existing metrics logic intact.
-        const unsubscribe = onSnapshot(collection(db, 'contacts'), (snapshot) => {
+        let q;
+        if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') {
+            // Fetch only top 500 to prevent quota limit errors during demo
+            // In a real app, this would use pagination or specific filters
+            q = query(collection(db, 'contacts'), limit(500));
+        } else {
+            // Volunteers only fetch their assigned contacts
+            q = query(collection(db, 'contacts'), where('assignedTo', '==', user.id));
+        }
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
             const contactsList = [];
             snapshot.forEach((doc) => {
                 contactsList.push({ id: doc.id, ...doc.data() });
