@@ -1,0 +1,109 @@
+/* Toggle Group Classes */
+.toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background-color: var(--color-bg);
+  padding: 0.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.toggle-btn {
+  flex: 1;
+  min-width: 30%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: all var(--transition-fast);
+  color: var(--color-text-muted);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.toggle-btn:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.toggle-btn.active-blue {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.2);
+  transform: translateY(-1px);
+}
+
+.toggle-btn.active-green {
+  background-color: var(--color-success);
+  color: white;
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  transform: translateY(-1px);
+}
+
+.toggle-btn.active-gray {
+  background-color: var(--color-text-muted);
+  color: white;
+  border-color: var(--color-text-muted);
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.2);
+  transform: translateY(-1px);
+}
+
+.toggle-btn.active-purple {
+  background-color: #7c3aed;
+  color: white;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+  transform: translateY(-1px);
+}
+
+.toggle-btn.active-red {
+  background-color: var(--color-error);
+  color: white;
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+  transform: translateY(-1px);
+}
+
+.text-left {
+  text-align: left;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.max-w-2xl {
+  max-width: 42rem;
+}
+
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.font-mono {
+  font-family: monospace;
+}
+
+.border-t-4 {
+  border-top-width: 4px;
+  border-top-style: solid;
+}
+
+.rounded {
+  border-radius: var(--radius-md);
+}
+
+.rounded-lg {
+  border-radius: var(--radius-lg);
+}
+
+.bg-gray-50 {
+  background-color: #f8fafc;
+}
+
+.border {
+  border: 1px solid var(--color-border);
+}
