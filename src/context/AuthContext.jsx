@@ -135,7 +135,7 @@ export const AuthProvider = ({ children }) => {
             const isInApp = /KAKAOTALK|Instagram|NAVER|Line|Daum|MicroMessenger/i.test(userAgent);
             
             if (isInApp) {
-                alert("카카오톡 등 앱 내부 브라우저에서는 구글 보안 정책상 로그인이 차단됩니다.\n우측 하단(또는 상단) 메뉴(⋮)를 눌러 '다른 브라우저로 열기(Safari/Chrome)'를 선택해주세요.");
+                alert("카카오톡 등 앱 내부 브라우저에서는 구글 보안 정책상 로그인이 차단됩니다.\n현재 화면의 링크 주소를 복사하신 후, 인터넷 브라우저(크롬, 사파리, 삼성 인터넷 등) 주소창에 붙여넣어 접속해주세요.");
                 
                 // 안드로이드의 경우 크롬 강제 실행 시도
                 if (/android/i.test(userAgent)) {
