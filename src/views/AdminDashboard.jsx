@@ -55,6 +55,12 @@ export const AdminDashboard = () => {
     // Unauthorized users waiting for approval
     const pendingUsers = allUsers.filter(u => u.role === 'UNAUTHORIZED');
 
+    // Pre-calculate volunteer stats and sort
+    const volunteersWithStats = volunteers.map(v => ({
+        ...v,
+        stats: getVolunteerStats(v.id)
+    })).sort((a, b) => b.stats.completed - a.stats.completed);
+
     const stats = getCampaignStats();
     const progressPercent = stats.total === 0 ? 0 : Math.round((stats.completed / stats.total) * 100);
 
@@ -339,8 +345,14 @@ export const AdminDashboard = () => {
                         </div>
 
                         {/* Card 4: 자원봉사자별 현황 */}
-                        <div className="bg-white rounded-[24px] shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 p-7 flex flex-col">
-                            <h2 className="text-[20px] font-extrabold mb-5 text-slate-800 tracking-tight">자원봉사자별 현황</h2>
+                        <div 
+                            onClick={() => setActiveTab('volunteers')}
+                            className="bg-white rounded-[24px] shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 p-7 flex flex-col cursor-pointer hover:bg-slate-50 relative"
+                        >
+                            <div className="absolute top-4 right-4 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 opacity-80">
+                                명단 보기 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                            </div>
+                            <h2 className="text-[20px] font-extrabold mb-5 text-slate-800 tracking-tight">자원봉사자별 현황 (TOP 3)</h2>
                             <div className="overflow-x-auto flex-1 border border-gray-200 rounded-lg selection-table">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-[#f0f4f8] text-gray-800 border-b border-gray-200">
@@ -353,11 +365,11 @@ export const AdminDashboard = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="text-[14px]">
-                                        {volunteers.length === 0 && (
+                                        {volunteersWithStats.length === 0 && (
                                             <tr><td colSpan="5" className="p-6 text-center text-gray-500 font-medium">등록된 자원봉사자가 없습니다.</td></tr>
                                         )}
-                                        {volunteers.map(v => {
-                                            const vStats = getVolunteerStats(v.id);
+                                        {volunteersWithStats.slice(0, 3).map(v => {
+                                            const vStats = v.stats;
                                             const isDone = vStats.total > 0 && vStats.progress === 100;
                                             const isPending = vStats.total === 0;
                                             return (
@@ -410,7 +422,7 @@ export const AdminDashboard = () => {
             )}
 
             {/* Other Tabs Content Maintained but Wrapped Properly */}
-            {(activeTab === 'users' || activeTab === 'contacts' || activeTab === 'completed') && (
+            {(activeTab === 'users' || activeTab === 'contacts' || activeTab === 'completed' || activeTab === 'volunteers') && (
                 <div className="px-8 py-6 text-gray-900 bg-[#e8edf2] flex-1 w-full flex flex-col items-center overflow-y-auto">
                     <div className="w-full max-w-[1100px] flex flex-col gap-6">
                         
@@ -492,6 +504,76 @@ export const AdminDashboard = () => {
                                 </div>
                             );
                         })()}
+
+                        {activeTab === 'volunteers' && (
+                            <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 flex flex-col">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-[20px] font-extrabold text-slate-800 flex items-center gap-2 border-l-4 border-[#1e3a8a] pl-3 tracking-tight">
+                                        자원봉사자 전체 명단 ({volunteersWithStats.length}명)
+                                    </h2>
+                                </div>
+                                
+                                <div className="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm selection-table">
+                                    <table className="w-full text-left whitespace-nowrap">
+                                        <thead className="bg-[#f8fafc] text-gray-800 border-b border-gray-100">
+                                            <tr>
+                                                <th className="p-4 pl-5 w-[25%] text-[14px] font-bold">이름</th>
+                                                <th className="p-4 w-[15%] text-[14px] font-bold">할당됨</th>
+                                                <th className="p-4 w-[15%] text-[14px] font-bold">완료</th>
+                                                <th className="p-4 w-[30%] text-[14px] font-bold">진행률</th>
+                                                <th className="p-4 pr-5 text-center w-[15%] text-[14px] font-bold">상태</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="text-[14px]">
+                                            {volunteersWithStats.length === 0 && (
+                                                <tr><td colSpan="5" className="p-6 text-center text-gray-500 font-medium bg-gray-50/50">등록된 자원봉사자가 없습니다.</td></tr>
+                                            )}
+                                            {volunteersWithStats.map(v => {
+                                                const vStats = v.stats;
+                                                const isDone = vStats.total > 0 && vStats.progress === 100;
+                                                const isPending = vStats.total === 0;
+                                                return (
+                                                    <tr key={v.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors">
+                                                        <td className="p-4 pl-5 font-bold text-[#1e3a8a] flex items-center gap-2">
+                                                            <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+                                                            <UserIcon size={14} className="text-blue-600 mt-1" />
+                                                            </div>
+                                                            {v.name}
+                                                        </td>
+                                                        <td className="p-4 font-semibold text-gray-800">{vStats.total}</td>
+                                                        <td className="p-4 font-semibold text-gray-800">{vStats.completed}</td>
+                                                        <td className="p-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[13px] font-bold text-gray-700 w-8">{vStats.progress}%</span>
+                                                                <div className="flex-1 h-[6px] bg-gray-200 rounded-full overflow-hidden mr-2">
+                                                                    <div className="h-full bg-[#1e3a8a] rounded-full" style={{ width: `${Math.max(10, vStats.progress)}%` }}></div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 pr-5 text-center">
+                                                            <div className="flex flex-col items-center gap-1.5 justify-center">
+                                                                <div className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[12px] font-black tracking-tight leading-tight w-full max-w-[56px] shadow-sm
+                                                                    ${isDone ? 'bg-[#e2e8f0] text-[#475569] border border-[#cbd5e1]' : 
+                                                                    isPending ? 'bg-[#f1f5f9] text-[#64748b] border border-[#e2e8f0]' : 
+                                                                    'bg-[#1e3a8a] text-white border border-[#1e3a8a]'}`}>
+                                                                    {isDone ? '완료' : isPending ? '대기' : '진행 증'}
+                                                                </div>
+                                                                <button 
+                                                                    onClick={() => navigate('/volunteer', { state: { volunteerId: v.id } })}
+                                                                    className="text-[11px] font-bold text-[#1e3a8a] bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-md transition-colors w-full max-w-[56px] shadow-sm"
+                                                                >
+                                                                    화면 보기
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                         
                         {activeTab === 'users' && (
                             <>
