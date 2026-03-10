@@ -209,6 +209,28 @@ export const CampaignProvider = ({ children }) => {
 
 
 
+    const importBulkContacts = async (contactsArray) => {
+        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
+        setLoading(true);
+        try {
+            for (let i = 0; i < contactsArray.length; i += 400) {
+                const chunk = contactsArray.slice(i, i + 400);
+                const batch = writeBatch(db);
+                chunk.forEach(c => {
+                    const docRef = doc(db, 'contacts', c.id);
+                    batch.set(docRef, { ...c });
+                });
+                await batch.commit();
+            }
+            alert(`성공적으로 ${contactsArray.length}명의 연락처를 통합 업로드했습니다.`);
+        } catch (error) {
+            console.error('Failed to import bulk contacts:', error);
+            alert('데이터 업로드 중 오류가 발생했습니다. 권한을 확인해주세요.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const getVolunteerStats = (volunteerId) => {
         const assigned = contacts.filter(c => c.assignedTo === volunteerId);
         const completedContacts = assigned.filter(c => c.status === 'CALLED' || c.supportLevel || (c.notes && c.notes !== '테스트용 데이터입니다.'));
@@ -254,6 +276,7 @@ export const CampaignProvider = ({ children }) => {
         updateContact,
         deleteContact,
         resetTestData,
+        importBulkContacts,
         getVolunteerStats,
         getCampaignStats,
         loading

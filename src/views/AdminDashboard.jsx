@@ -623,6 +623,10 @@ export const AdminDashboard = () => {
                                                             ) : (
                                                                 <div className="flex justify-end gap-1.5 p-1 bg-slate-100 rounded-2xl w-max ml-auto shadow-inner border border-slate-200/60">
                                                                     <button 
+                                                                        onClick={() => handleRoleUpdate(user.id, user.name, 'SUPER_ADMIN')}
+                                                                        className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'SUPER_ADMIN' ? 'bg-white text-purple-700 shadow-sm border border-slate-200/80 scale-100' : 'text-slate-500 hover:text-purple-700 scale-95 hover:bg-slate-200/50'}`}
+                                                                    >최고 관리자</button>
+                                                                    <button 
                                                                         onClick={() => handleRoleUpdate(user.id, user.name, 'ADMIN')}
                                                                         className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'ADMIN' ? 'bg-white text-[#1e3a8a] shadow-sm border border-slate-200/80 scale-100' : 'text-slate-500 hover:text-slate-800 scale-95 hover:bg-slate-200/50'}`}
                                                                     >관리자</button>
@@ -651,6 +655,27 @@ export const AdminDashboard = () => {
                                 <div className="flex justify-between items-center mb-6">
                                     <h2 className="text-[20px] font-extrabold text-slate-800 flex items-center gap-2 border-l-4 border-[#1e3a8a] pl-3 tracking-tight">연락처 및 명부 관리</h2>
                                     <div className="flex gap-2">
+                                        <button 
+                                            onClick={async () => {
+                                                if(window.confirm('서버에 저장된 1,300여 개의 최신 병합 데이터를 불러와 업로드하시겠습니까?')) {
+                                                    try {
+                                                        const res = await fetch('/merged_contacts.json');
+                                                        const data = await res.json();
+                                                        if(data && Array.isArray(data)) {
+                                                            await importBulkContacts(data);
+                                                            window.location.reload();
+                                                        }
+                                                    } catch (e) {
+                                                        alert('JSON 파일을 불러오는데 실패했습니다.');
+                                                        console.error(e);
+                                                    }
+                                                }
+                                            }} 
+                                            className="px-4 py-2 border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 text-[13px] font-extrabold rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1"
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                            통합 데이터 업로드
+                                        </button>
                                         <button onClick={resetTestData} className="px-4 py-2 border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 text-[13px] font-extrabold rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1">
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                                             테스트 DB 초기화
