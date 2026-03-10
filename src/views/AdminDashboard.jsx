@@ -259,21 +259,7 @@ export const AdminDashboard = () => {
                                 ))}
                             </div>
                             
-                            {/* Legend */}
-                            <div className="flex justify-center items-center gap-3 mt-5 pt-4 border-t border-gray-100 flex-wrap">
-                                {[
-                                    { label: '강하게 지지', color: '#1e3a8a' },
-                                    { label: '약하게 지지', color: '#3b82f6' },
-                                    { label: '관심없음', color: '#93c5fd' },
-                                    { label: '지지하지 않음', color: '#94a3b8' },
-                                    { label: '다른후보 지지', color: '#475569' },
-                                ].map((item, i) => (
-                                    <div key={i} className="flex items-center gap-1.5">
-                                        <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }}></div>
-                                        <span className="text-[11px] font-bold text-gray-500">{item.label}</span>
-                                    </div>
-                                ))}
-                            </div>
+
                         </div>
 
                         {/* Card 3: 할당량 관리 */}
@@ -287,7 +273,7 @@ export const AdminDashboard = () => {
                                 {/* Left side */}
                                 <div className="flex-1 flex flex-col justify-between">
                                     <div>
-                                        <span className="text-[14px] font-bold text-gray-800 block mb-2 tracking-tight">미할당 연락처:</span>
+                                        <span className="text-[14px] font-bold text-gray-800 block mb-2 tracking-tight">미할당 연락처 (전체 {contacts.length}명 대비):</span>
                                         <div className="flex items-center gap-2">
                                             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-400 text-white pb-0.5">
                                                 <UserIcon size={18} fill="currentColor" />
@@ -805,6 +791,7 @@ export const AdminDashboard = () => {
                                                 <th className="p-4">이름</th>
                                                 <th className="p-4">나이</th>
                                                 <th className="p-4">당원구분</th>
+                                                <th className="p-4">직함</th>
                                                 <th className="p-4">지역</th>
                                                 <th className="p-4">전화번호</th>
                                                 <th className="p-4">담당자</th>
@@ -815,10 +802,10 @@ export const AdminDashboard = () => {
                                         </thead>
                                         <tbody>
                                             {(() => {
-                                                let filteredContacts = contacts;
+                                                let filteredContacts = [...contacts];
                                                 if (contactSearchTerm) {
                                                     const term = contactSearchTerm.toLowerCase();
-                                                    filteredContacts = contacts.filter(c => 
+                                                    filteredContacts = filteredContacts.filter(c => 
                                                         (c.name && c.name.toLowerCase().includes(term)) ||
                                                         (c.phone && c.phone.includes(term)) ||
                                                         (c.region && c.region.toLowerCase().includes(term)) ||
@@ -827,6 +814,13 @@ export const AdminDashboard = () => {
                                                         (c.age && c.age.toString().includes(term))
                                                     );
                                                 }
+                                                
+                                                // Sort: 권리당원 first, then others
+                                                filteredContacts.sort((a, b) => {
+                                                    if (a.memberType === '권리당원' && b.memberType !== '권리당원') return -1;
+                                                    if (a.memberType !== '권리당원' && b.memberType === '권리당원') return 1;
+                                                    return 0; // maintain relative order for others
+                                                });
                                                 
                                                 const totalPages = Math.ceil(filteredContacts.length / contactsPerPage) || 1;
                                                 const displayedContacts = filteredContacts.slice((contactPage - 1) * contactsPerPage, contactPage * contactsPerPage);
@@ -851,8 +845,9 @@ export const AdminDashboard = () => {
                                                             </td>
                                                             <td className="p-4 font-bold text-gray-800">{contact.name}</td>
                                                             <td className="p-4 text-gray-500">{contact.age || '-'}</td>
-                                                            <td className="p-4 text-gray-500">{contact.memberType || '-'}</td>
-                                                            <td className="p-4 text-gray-500">{contact.region || '-'}</td>
+                                                            <td className="p-4"><span className={`px-2 py-0.5 rounded text-xs font-bold ${contact.memberType === '권리당원' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'text-gray-500'}`}>{contact.memberType || '-'}</span></td>
+                                                            <td className="p-4 text-gray-500 text-xs max-w-[150px] truncate" title={contact.title}>{contact.title || '-'}</td>
+                                                            <td className="p-4 text-gray-500 max-w-[120px] truncate" title={contact.region}>{contact.region || '-'}</td>
                                                             <td className="p-4 font-mono text-gray-600">{contact.phone}</td>
                                                             <td className="p-4 text-gray-600 font-medium">{assignedVolunteer ? assignedVolunteer.name : <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs font-bold">미할당</span>}</td>
                                                             <td className="p-4">
@@ -886,6 +881,79 @@ export const AdminDashboard = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                                {/* Pagination Controls */}
+                                {(() => {
+                                    let filteredContacts = [...contacts];
+                                    if (contactSearchTerm) {
+                                        const term = contactSearchTerm.toLowerCase();
+                                        filteredContacts = filteredContacts.filter(c => 
+                                            (c.name && c.name.toLowerCase().includes(term)) ||
+                                            (c.phone && c.phone.includes(term)) ||
+                                            (c.region && c.region.toLowerCase().includes(term)) ||
+                                            (c.memberType && c.memberType.toLowerCase().includes(term)) ||
+                                            (c.supportLevel && c.supportLevel.toLowerCase().includes(term)) ||
+                                            (c.age && c.age.toString().includes(term))
+                                        );
+                                    }
+                                    const totalPages = Math.ceil(filteredContacts.length / contactsPerPage) || 1;
+                                    
+                                    return (
+                                        <div className="flex justify-between items-center mt-6">
+                                            <div className="text-sm text-gray-500 font-bold flex items-center gap-2">
+                                                <span>총 {filteredContacts.length}명 검색됨</span>
+                                                <span className="text-gray-300">|</span>
+                                                <select 
+                                                    value={contactsPerPage}
+                                                    onChange={(e) => {
+                                                        const newPerPage = Number(e.target.value);
+                                                        setContactsPerPage(newPerPage);
+                                                        setContactPage(1);
+                                                    }}
+                                                    className="bg-transparent border-none text-gray-500 font-bold focus:ring-0 cursor-pointer p-0"
+                                                >
+                                                    <option value={50}>50명씩 보기</option>
+                                                    <option value={100}>100명씩 보기</option>
+                                                    <option value={200}>200명씩 보기</option>
+                                                </select>
+                                            </div>
+                                            <div className="flex bg-gray-100 rounded-lg p-1 items-center gap-2">
+                                                <button 
+                                                    onClick={() => setContactPage(p => Math.max(1, p - 1))}
+                                                    disabled={contactPage === 1}
+                                                    className="px-4 py-2 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1 min-w-[70px]"
+                                                >
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> 이전
+                                                </button>
+                                                
+                                                <div className="flex items-center gap-2 px-2">
+                                                    <input 
+                                                        type="number" 
+                                                        min="1" 
+                                                        max={totalPages}
+                                                        value={contactPage}
+                                                        onChange={(e) => {
+                                                            let val = parseInt(e.target.value);
+                                                            if (isNaN(val)) return;
+                                                            if (val < 1) val = 1;
+                                                            if (val > totalPages) val = totalPages;
+                                                            setContactPage(val);
+                                                        }}
+                                                        className="w-14 text-center py-1 rounded border border-gray-300 text-sm font-bold outline-none focus:ring-2 focus:ring-[#1e3a8a]/20"
+                                                    />
+                                                    <span className="text-sm font-bold text-gray-500">/ {totalPages}</span>
+                                                </div>
+
+                                                <button 
+                                                    onClick={() => setContactPage(p => Math.min(totalPages, p + 1))}
+                                                    disabled={contactPage === totalPages}
+                                                    className="px-4 py-2 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1 min-w-[70px]"
+                                                >
+                                                    다음 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
                     </div>
