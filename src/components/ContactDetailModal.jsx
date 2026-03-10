@@ -35,22 +35,23 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
 
     const supportOptions = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
 
-    const handleAddRecord = () => {
-        if (!newRecord.trim()) return;
+    const handleSaveAll = () => {
+        let updateData = { supportLevel };
         
-        const now = new Date();
-        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        const recordEntry = `[${dateString}] ${newRecord.trim()}\n(성향: ${supportLevel})`;
+        if (newRecord.trim()) {
+            const now = new Date();
+            const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            const recordEntry = `[${dateString}] ${newRecord.trim()}\n(성향: ${supportLevel})`;
+            
+            updateData.notes = contact.notes 
+                ? `${contact.notes}\n${recordEntry}` 
+                : recordEntry;
+                
+            setNewRecord('');
+        }
         
-        const updatedNotes = contact.notes 
-            ? `${contact.notes}\n${recordEntry}` 
-            : recordEntry;
-
-        updateContact(contact.id, { 
-            notes: updatedNotes,
-            supportLevel: supportLevel 
-        });
-        setNewRecord('');
+        updateContact(contact.id, updateData);
+        alert('저장되었습니다.');
     };
 
     const handleSaveEdit = () => {
@@ -83,13 +84,10 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                             </button>
                         )}
                         <button 
-                            onClick={() => {
-                                updateContact(contact.id, { supportLevel });
-                                alert('성향이 안전하게 저장되었습니다.');
-                            }}
+                            onClick={handleSaveAll}
                             className="flex items-center gap-1 bg-slate-800 hover:bg-slate-900 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm text-white border border-slate-600 ml-1"
                         >
-                            <Save size={16} /> 성향 저장
+                            <Save size={16} /> 저장
                         </button>
                         <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors active:scale-95 ml-2">
                             <X size={20} />
@@ -211,19 +209,11 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                         <div className="flex gap-2">
                             <textarea
                                 className="w-full flex-1 border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a] rounded-xl p-3 text-[13px] font-medium resize-none transition-all placeholder:text-slate-400"
-                                placeholder="통화 내용을 상세하게 기록해주세요..."
+                                placeholder="통화 내용을 상세하게 기록해주세요... (상단의 저장 버튼을 누르면 기록이 저장됩니다)"
                                 rows={3}
                                 value={newRecord}
                                 onChange={(e) => setNewRecord(e.target.value)}
                             />
-                            <button 
-                                onClick={handleAddRecord}
-                                disabled={!newRecord.trim()}
-                                className="w-16 flex flex-col items-center justify-center gap-1 bg-[#1e3a8a] hover:bg-[#1e40af] disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl transition-colors shrink-0 font-bold text-[12px] active:scale-95 shadow-sm"
-                            >
-                                <Plus size={18} />
-                                등록
-                            </button>
                         </div>
                     </div>
 
