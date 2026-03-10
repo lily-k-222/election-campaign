@@ -226,6 +226,19 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
+    // Admin action: Fetch contacts for a specific volunteer (one-time fetch)
+    const fetchVolunteerContacts = async (volunteerId) => {
+        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return [];
+        try {
+            const q = query(collection(db, 'contacts'), where('assignedTo', '==', volunteerId));
+            const snap = await getDocs(q);
+            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (error) {
+            console.error('Failed to fetch volunteer contacts:', error);
+            return [];
+        }
+    };
+
 
     const importBulkContacts = async (contactsArray) => {
         if (user?.role !== 'DEVELOPER') return;
@@ -275,8 +288,8 @@ export const CampaignProvider = ({ children }) => {
                 await batch.commit();
                 totalDeleted += snap.size;
                 console.log(`Deleted ${totalDeleted} contacts...`);
-                // Add a small delay to avoid rate limits
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Increase delay to 1 second to be very safe with rate limits
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
             // 2. Re-seed from contacts.json
@@ -293,8 +306,8 @@ export const CampaignProvider = ({ children }) => {
                 });
                 await batch.commit();
                 console.log(`Seeded ${Math.min(i + 400, dataToSeed.length)}/${dataToSeed.length}...`);
-                // Add a small delay to avoid rate limits
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Increase delay to 1 second to be very safe with rate limits
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
             
             alert(`성공적으로 데이터베이스를 초기화하고 ${dataToSeed.length}개의 연락처를 등록했습니다.`);
@@ -307,15 +320,24 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
-    const getVolunteerStatsLocal = (volunteerId) => {
-        const assigned = contacts.filter(c => c.assignedTo === volunteerId);
-        const completedContacts = assigned.filter(c => c.status === 'CALLED' || c.supportLevel);
-        return {
-            total: assigned.length,
-            completed: completedContacts.length,
-            remaining: assigned.length - completedContacts.length,
-            progress: assigned.length === 0 ? 0 : Math.round((completedContacts.length / assigned.length) * 100)
-        };
+    const getVolunteerStats = (volunteerId) => {
+        // If we already have the contacts in state (for the volunteer themselves)
+        if (contacts.length > 0 && user?.id === volunteerId) {
+            const assigned = contacts.filter(c => c.assignedTo === volunteerId);
+            const completedContacts = assigned.filter(c => c.status === 'CALLED');
+            return {
+                total: assigned.length,
+                completed: completedContacts.length,
+                remaining: assigned.length - completedContacts.length,
+                progress: assigned.length === 0 ? 0 : Math.round((completedContacts.length / assigned.length) * 100)
+            };
+        }
+        
+        // Otherwise, use the pre-calculated stats from AdminDashboard (or return 0s)
+        // Note: For a proper implementation, this should be reactive, but since
+        // Admins now fetch stats manually, we return the cached value if exist.
+        // For the VolunteerDashboard specifically, we'll fetch docs if not loaded.
+        return { total: 0, completed: 0, remaining: 0, progress: 0 };
     };
 
     const fetchAllVolunteerStats = async (volunteerIds) => {
@@ -354,26 +376,21 @@ export const CampaignProvider = ({ children }) => {
         try {
             const contactsRef = collection(db, 'contacts');
             
-            // Reduced aggregation calls to prevent quota exhaustion
-            const totalSnap = await getCountFromServer(contactsRef);
+            // Critical optimization: Use simple counts with catch to handle quota
+            const totalSnap = await getCountFromServer(contactsRef).catch(() => null);
+            if (!totalSnap) throw new Error("Quota Exceeded");
             const total = totalSnap.data().count;
 
-            const completedSnap = await getCountFromServer(query(contactsRef, where('status', '==', 'CALLED')));
-            const completed = completedSnap.data().count;
+            const completedSnap = await getCountFromServer(query(contactsRef, where('status', '==', 'CALLED'))).catch(() => ({ data: () => ({ count: 0 }) }));
+            const completed = (completedSnap.data && completedSnap.data()) ? completedSnap.data().count : 0;
 
-            const unassignedSnap = await getCountFromServer(query(contactsRef, where('assignedTo', '==', null)));
-            const unassigned = unassignedSnap.data().count;
+            const unassignedSnap = await getCountFromServer(query(contactsRef, where('assignedTo', '==', null))).catch(() => ({ data: () => ({ count: 0 }) }));
+            const unassigned = (unassignedSnap.data && unassignedSnap.data()) ? unassignedSnap.data().count : 0;
 
-            // Survey results: Fetching these individually is expensive. 
-            // In a low-quota environment, we might omit this or calculate from a limited set.
-            // For now, let's keep it but handle failure gracefully.
-            const results = {};
-            let surveyCount = 0;
-
-            return { total, completed, unassigned, surveyCount: completed, results };
+            return { total, completed, unassigned, surveyCount: completed, results: {} };
         } catch (e) {
             console.error("Stats fetch failed", e);
-            return { total: 0, completed: 0, unassigned: 0, surveyCount: 0, results: {} };
+            return { total: 0, completed: 0, unassigned: 0, surveyCount: 0, results: {}, error: e.message };
         }
     };
 
@@ -387,7 +404,8 @@ export const CampaignProvider = ({ children }) => {
         deleteContact,
         importBulkContacts,
         fetchContactsPaginated,
-        getVolunteerStats: user?.role === 'VOLUNTEER' ? getVolunteerStatsLocal : () => ({ total: 0, completed: 0, remaining: 0, progress: 0 }),
+        fetchVolunteerContacts,
+        getVolunteerStats,
         fetchAllVolunteerStats,
         getCampaignStats,
         resetDatabase,

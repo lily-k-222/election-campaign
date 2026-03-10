@@ -7,7 +7,7 @@ import { DialogModal } from '../components/DialogModal';
 import { Search, ChevronRight, Phone, User, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 export const VolunteerDashboard = () => {
-    const { getVolunteerStats, contacts, updateContact } = useCampaign();
+    const { getVolunteerStats, contacts, updateContact, fetchVolunteerContacts } = useCampaign();
     const { user: currentUser, getAllUsers } = useAuth();
     const location = useLocation();
     
@@ -26,8 +26,52 @@ export const VolunteerDashboard = () => {
     // Status Modal State
     const [dialogConfig, setDialogConfig] = useState({ isOpen: false, type: 'alert', title: '', message: '', onConfirm: null });
 
+    const [volunteerContacts, setVolunteerContacts] = useState([]);
+    const [isVStatsLoading, setIsVStatsLoading] = useState(false);
+
+    // Fetch contacts for the target volunteer (especially for admins who don't have global listener)
+    React.useEffect(() => {
+        if (!targetUserId) return;
+        
+        // If it's the current volunteer, contacts are already loaded via user-specific listener in context
+        if (!isAdmin && currentUser.id === targetUserId) {
+            setVolunteerContacts(contacts);
+            return;
+        }
+
+        // For admins, we need to fetch them
+        const loadVolunteerData = async () => {
+            setIsVStatsLoading(true);
+            try {
+                const data = await fetchVolunteerContacts(targetUserId);
+                setVolunteerContacts(data);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setIsVStatsLoading(false);
+            }
+        };
+        
+        loadVolunteerData();
+    }, [targetUserId, isAdmin, fetchVolunteerContacts, contacts, currentUser.id]);
+
     const stats = targetUserId ? getVolunteerStats(targetUserId) : { progress: 0, total: 0, completed: 0 };
-    const myContacts = targetUserId ? contacts.filter(c => c.assignedTo === targetUserId) : [];
+    // If stats are 0 but we are admin, we might need to show the ones from AdminDashboard.
+    // For now, let's just use the filtered contacts to calculate stats locally if they are loaded.
+    const localStats = useMemo(() => {
+        const assigned = volunteerContacts;
+        const completed = assigned.filter(c => c.status === 'CALLED').length;
+        const total = assigned.length;
+        return {
+            total,
+            completed,
+            remaining: total - completed,
+            progress: total === 0 ? 0 : Math.round((completed / total) * 100)
+        };
+    }, [volunteerContacts]);
+
+    const displayStats = (isAdmin && localStats.total === 0) ? stats : localStats;
+    const myContacts = volunteerContacts;
 
     // Filter contacts based on search query
     const filteredSearchContacts = useMemo(() => {
@@ -161,23 +205,27 @@ export const VolunteerDashboard = () => {
                         </button>
                     </div>
                     
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center border-4 border-[#1e3a8a] relative shrink-0">
-                            <span className="text-lg font-black text-[#1e3a8a]">{stats.progress}%</span>
-                        </div>
-                        <div className="flex-1">
-                            <div className="flex justify-between text-[14px] font-bold text-slate-600 mb-2">
-                                <span>할당된 전체 통화: {stats.total}건</span>
-                                <span className="text-[#1e3a8a]">완료: {stats.completed}건</span>
+                    {isVStatsLoading ? (
+                        <div className="py-4 text-center text-slate-400 font-bold">데이터를 불러오는 중...</div>
+                    ) : (
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center border-4 border-[#1e3a8a] relative shrink-0">
+                                <span className="text-lg font-black text-[#1e3a8a]">{displayStats.progress}%</span>
                             </div>
-                            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                                <div 
-                                    className="h-full bg-[#1e3a8a] rounded-full transition-all duration-1000 ease-out" 
-                                    style={{ width: `${stats.progress}%` }}
-                                ></div>
+                            <div className="flex-1">
+                                <div className="flex justify-between text-[14px] font-bold text-slate-600 mb-2">
+                                    <span>할당된 전체 통화: {displayStats.total}건</span>
+                                    <span className="text-[#1e3a8a]">완료: {displayStats.completed}건</span>
+                                </div>
+                                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                                    <div 
+                                        className="h-full bg-[#1e3a8a] rounded-full transition-all duration-1000 ease-out" 
+                                        style={{ width: `${displayStats.progress}%` }}
+                                    ></div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* 2) Search Bar */}

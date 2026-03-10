@@ -65,15 +65,21 @@ export const AdminDashboard = () => {
     const [campaignStats, setCampaignStats] = useState({ total: 0, completed: 0, surveyCount: 0, results: {} });
     const [unassignedCount, setUnassignedCount] = useState(0);
     const [volunteerStatsMap, setVolunteerStatsMap] = useState({});
+    const [isStatsLoading, setIsStatsLoading] = useState(false);
+    const [statsError, setStatsError] = useState(null);
 
     // Initial Stats Load
-    React.useEffect(() => {
-        const loadStats = async () => {
+    const loadStats = async () => {
+        setIsStatsLoading(true);
+        setStatsError(null);
+        try {
             const s = await getCampaignStats();
+            if (s.error) {
+                setStatsError(s.error);
+            }
             setCampaignStats(s);
             setUnassignedCount(s.unassigned || 0); 
 
-            // Also fetch volunteer stats if we have users
             if (users && users.length > 0) {
                 const vids = users.filter(u => u.role === 'VOLUNTEER').map(u => u.id);
                 if (vids.length > 0) {
@@ -81,8 +87,18 @@ export const AdminDashboard = () => {
                     setVolunteerStatsMap(vStats);
                 }
             }
-        };
-        loadStats();
+        } catch (e) {
+            setStatsError(e.message);
+        } finally {
+            setIsStatsLoading(false);
+        }
+    };
+
+    // Initial Stats Load - Only once on mount if not loaded
+    React.useEffect(() => {
+        if (!campaignStats.total && !isStatsLoading) {
+            loadStats();
+        }
     }, [contextLoading, !!users]);
 
     // Paginated Fetch Effect
@@ -242,6 +258,37 @@ export const AdminDashboard = () => {
             {/* Campaign Dashboard Content */}
             {activeTab === 'campaign' && (
                 <div className="px-8 py-6 text-gray-900 bg-[#e8edf2] flex-1 w-full flex flex-col items-center">
+                    <div className="w-full max-w-[1100px] mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div className="flex flex-col">
+                            <h1 className="text-2xl font-black text-slate-800 tracking-tight">대시보드</h1>
+                            <p className="text-sm text-slate-500 font-medium">캠페인 진행 현황을 실시간으로 확인하세요.</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {statsError && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 animate-pulse">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                    일일 할당량 초과됨 (나중에 다시 시도)
+                                </div>
+                            )}
+                            <button 
+                                onClick={loadStats}
+                                disabled={isStatsLoading}
+                                className={`flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 shadow-sm hover:shadow-md transition-all active:scale-95 ${isStatsLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            >
+                                <svg 
+                                    className={`${isStatsLoading ? 'animate-spin' : ''}`}
+                                    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                                >
+                                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                    <path d="M3 3v5h5"/>
+                                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                                    <path d="M16 16h5v5"/>
+                                </svg>
+                                {isStatsLoading ? '불러오는 중...' : '통계 새로고침'}
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full max-w-[1100px]">
                         
                         {/* Card 1: 전체 캠페인 진행 상황 */}
