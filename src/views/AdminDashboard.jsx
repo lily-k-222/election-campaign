@@ -18,7 +18,8 @@ export const AdminDashboard = () => {
         updateContact,
         deleteContact,
         reassignContacts,
-        resetTestData
+        resetTestData,
+        importBulkContacts
     } = useCampaign();
 
     const { getAllUsers, updateUserRole, user: currentUser } = useAuth();
