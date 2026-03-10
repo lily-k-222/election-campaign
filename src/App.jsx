@@ -15,7 +15,7 @@ function App() {
   // Custom Home component to redirect based on role
   const HomeRedirect = () => {
     if (!isAuthenticated) return <Navigate to="/login" replace />;
-    if (role === 'SUPER_ADMIN' || role === 'ADMIN') return <Navigate to="/admin" replace />;
+    if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'DEVELOPER') return <Navigate to="/admin" replace />;
     return <Navigate to="/volunteer" replace />;
   };
 
@@ -28,12 +28,12 @@ function App() {
         <Route path="/" element={<HomeRedirect />} />
 
         {/* Admin Routes */}
-        <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'DEVELOPER']} />}>
           <Route path="/admin" element={<AdminDashboard />} />
         </Route>
 
         {/* Volunteer Routes */}
-        <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'VOLUNTEER']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'DEVELOPER', 'VOLUNTEER']} />}>
           <Route path="/volunteer" element={<VolunteerDashboard />} />
         </Route>
       </Route>

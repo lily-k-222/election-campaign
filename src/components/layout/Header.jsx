@@ -32,8 +32,9 @@ export const Header = () => {
                             <span className="text-sm font-bold text-gray-800">{user.name}</span>
                             <span className="text-[11px] text-gray-500 font-medium tracking-tight">
                                 {user.role === 'SUPER_ADMIN' ? '슈퍼 관리자' :
-                                    user.role === 'ADMIN' ? '관리자' :
-                                        user.role === 'VOLUNTEER' ? '자원봉사자' : '승인 대기중'}
+                                    user.role === 'DEVELOPER' ? '개발자' :
+                                        user.role === 'ADMIN' ? '관리자' :
+                                            user.role === 'VOLUNTEER' ? '자원봉사자' : '승인 대기중'}
                             </span>
                         </div>
                     </div>

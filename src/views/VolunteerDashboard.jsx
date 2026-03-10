@@ -11,7 +11,7 @@ export const VolunteerDashboard = () => {
     const { user: currentUser, getAllUsers } = useAuth();
     const location = useLocation();
     
-    const isAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
+    const isAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN' || currentUser?.role === 'DEVELOPER';
 
     const [adminSearchQuery, setAdminSearchQuery] = useState('');
     const [selectedVolunteerId, setSelectedVolunteerId] = useState(isAdmin ? (location.state?.volunteerId || '') : currentUser.id);

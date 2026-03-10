@@ -29,8 +29,21 @@ export const ProtectedRoute = ({ allowedRoles = [] }) => {
             );
         }
 
-        // Redirect somewhere safe if they try to access a page they shouldn't (like volunteer trying to access admin)
-        return <Navigate to={role.includes('ADMIN') ? "/admin" : "/volunteer"} replace />;
+        // Safe redirect destinations to avoid infinite loops
+        const isAdminType = role === 'ADMIN' || role === 'DEVELOPER' || role === 'SUPER_ADMIN';
+        const targetPath = isAdminType ? "/admin" : "/volunteer";
+
+        // Only navigate if we are NOT already on the target path to prevent loops
+        if (location.pathname === targetPath) {
+            return (
+                <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
+                    <h2 className="text-xl font-bold mb-2">접근 권한이 없습니다</h2>
+                    <p className="text-muted">이 페이지에 접근할 수 있는 권한이 없습니다.</p>
+                </div>
+            );
+        }
+
+        return <Navigate to={targetPath} replace />;
     }
 
     return <Outlet />;
