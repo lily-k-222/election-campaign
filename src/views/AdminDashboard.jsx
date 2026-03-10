@@ -24,6 +24,7 @@ export const AdminDashboard = () => {
     } = useCampaign();
 
     const { getAllUsers, updateUserRole, user: currentUser } = useAuth();
+    const users = getAllUsers(); // Fix ReferenceError
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('campaign'); // 'campaign' or 'users' or 'contacts'
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -108,11 +109,10 @@ export const AdminDashboard = () => {
         setDialogConfig(prev => ({ ...prev, isOpen: false }));
     };
 
-    const allUsers = getAllUsers();
     // Volunteers are users with VOLUNTEER role
-    const volunteers = allUsers.filter(u => u.role === 'VOLUNTEER');
+    const volunteers = users.filter(u => u.role === 'VOLUNTEER');
     // Unauthorized users waiting for approval
-    const pendingUsers = allUsers.filter(u => u.role === 'UNAUTHORIZED');
+    const pendingUsers = users.filter(u => u.role === 'UNAUTHORIZED');
 
     // Pre-calculate volunteer stats and sort
     const volunteersWithStats = volunteers.map(v => ({
