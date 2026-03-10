@@ -167,9 +167,10 @@ export const CampaignProvider = ({ children }) => {
                     age: `${20 + (i % 5)*10}대`,
                     memberType: i % 2 === 0 ? '권리당원' : '일반당원',
                     region: `테스트동 ${i}구`,
-                    phone: `010-${String(Math.floor(Math.random() * 9000) + 1000)}-${String(Math.floor(Math.random() * 9000) + 1000)}`,
+                    phone: `010-1234-1234`, // requested by user
                     status: 'UNASSIGNED',
                     surveyResult: null,
+                    supportLevel: null,
                     notes: '테스트용 데이터입니다.',
                     assignedTo: null
                 });
@@ -184,6 +185,8 @@ export const CampaignProvider = ({ children }) => {
             setLoading(false);
         }
     };
+
+
 
     const getVolunteerStats = (volunteerId) => {
         const assigned = contacts.filter(c => c.assignedTo === volunteerId);
