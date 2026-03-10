@@ -29,6 +29,10 @@ export const AdminDashboard = () => {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [viewingContact, setViewingContact] = useState(null);
     
+    // Pagination state for completed contacts list
+    const [completedPage, setCompletedPage] = useState(1);
+    const itemsPerPage = 10;
+    
     // Custom Modal State
     const [dialogConfig, setDialogConfig] = useState({ isOpen: false, type: 'alert', title: '', message: '', onConfirm: null });
 
@@ -141,7 +145,16 @@ export const AdminDashboard = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full max-w-[1100px]">
                         
                         {/* Card 1: 전체 캠페인 진행 상황 */}
-                        <div className="bg-white rounded-[24px] shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 p-7 flex flex-col">
+                        <div 
+                            onClick={() => {
+                                setActiveTab('completed');
+                                setCompletedPage(1);
+                            }}
+                            className="bg-white rounded-[24px] shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 p-7 flex flex-col cursor-pointer hover:bg-slate-50 relative"
+                        >
+                            <div className="absolute top-4 right-4 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 opacity-80">
+                                명단 보기 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                            </div>
                             <h2 className="text-[20px] font-extrabold mb-4 text-slate-800 tracking-tight">전체 캠페인 진행 상황</h2>
                             <div className="relative w-64 h-64 mx-auto mt-2 mb-4 flex items-center justify-center">
                                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -365,9 +378,88 @@ export const AdminDashboard = () => {
             )}
 
             {/* Other Tabs Content Maintained but Wrapped Properly */}
-            {(activeTab === 'users' || activeTab === 'contacts') && (
+            {(activeTab === 'users' || activeTab === 'contacts' || activeTab === 'completed') && (
                 <div className="px-8 py-6 text-gray-900 bg-[#e8edf2] flex-1 w-full flex flex-col items-center overflow-y-auto">
                     <div className="w-full max-w-[1100px] flex flex-col gap-6">
+                        
+                        {activeTab === 'completed' && (() => {
+                            const isCompleted = (c) => c.status === 'CALLED' || c.supportLevel || (c.notes && c.notes !== '테스트용 데이터입니다.');
+                            const completedContacts = contacts.filter(isCompleted);
+                            const totalPages = Math.ceil(completedContacts.length / itemsPerPage) || 1;
+                            const startIndex = (completedPage - 1) * itemsPerPage;
+                            const currentContacts = completedContacts.slice(startIndex, startIndex + itemsPerPage);
+
+                            return (
+                                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 flex flex-col">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-[20px] font-extrabold text-slate-800 flex items-center gap-2 border-l-4 border-[#1e3a8a] pl-3 tracking-tight">
+                                            통화 완료자 명단 ({completedContacts.length}명)
+                                        </h2>
+                                        <div className="flex bg-gray-100 rounded-lg p-1 items-center gap-2">
+                                            <button 
+                                                onClick={() => setCompletedPage(p => Math.max(1, p - 1))}
+                                                disabled={completedPage === 1}
+                                                className="px-3 py-1.5 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1"
+                                            >
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> 이전
+                                            </button>
+                                            <span className="text-sm font-bold text-gray-600 px-2">{completedPage} / {totalPages}</span>
+                                            <button 
+                                                onClick={() => setCompletedPage(p => Math.min(totalPages, p + 1))}
+                                                disabled={completedPage === totalPages}
+                                                className="px-3 py-1.5 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1"
+                                            >
+                                                다음 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm">
+                                        <table className="w-full text-left text-sm whitespace-nowrap">
+                                            <thead className="bg-[#f8fafc] text-gray-600 font-bold border-b border-gray-100">
+                                                <tr>
+                                                    <th className="p-4 pl-5">이름</th>
+                                                    <th className="p-4">나이</th>
+                                                    <th className="p-4">당원구분</th>
+                                                    <th className="p-4">지역</th>
+                                                    <th className="p-4">전화번호</th>
+                                                    <th className="p-4">성향</th>
+                                                    <th className="p-4">담당자</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {currentContacts.length === 0 ? (
+                                                    <tr><td colSpan="7" className="p-6 text-center text-gray-500 font-medium">통화 완료된 연락처가 없습니다.</td></tr>
+                                                ) : (
+                                                    currentContacts.map(contact => {
+                                                        const assignedVolunteer = volunteers.find(v => v.id === contact.assignedTo);
+                                                        return (
+                                                            <tr 
+                                                                key={contact.id} 
+                                                                className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors cursor-pointer"
+                                                                onClick={() => handleEditClick(contact)}
+                                                            >
+                                                                <td className="p-4 pl-5 font-bold text-[#1e3a8a] flex items-center gap-2">
+                                                                    {contact.name}
+                                                                </td>
+                                                                <td className="p-4 text-gray-500">{contact.age || '-'}</td>
+                                                                <td className="p-4 text-gray-500">{contact.memberType || '-'}</td>
+                                                                <td className="p-4 text-gray-500">{contact.region || '-'}</td>
+                                                                <td className="p-4 font-mono text-gray-600">{contact.phone}</td>
+                                                                <td className="p-4">
+                                                                    <span className="font-bold text-gray-700 bg-gray-100 px-2 py-1 rounded-md text-xs">{contact.supportLevel || '미분류'}</span>
+                                                                </td>
+                                                                <td className="p-4 text-gray-600 font-medium">{assignedVolunteer ? assignedVolunteer.name : '알수없음'}</td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                         
                         {activeTab === 'users' && (
                             <>
