@@ -47,9 +47,8 @@ export const CampaignProvider = ({ children }) => {
 
         let q;
         if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') {
-            // Fetch only top 50 to prevent quota limit errors during demo
-            // In a real app, this would use pagination or specific filters
-            q = query(collection(db, 'contacts'), limit(50));
+            // Fetch all contacts (warning: for large DBs, use server-side pagination)
+            q = query(collection(db, 'contacts'));
         } else {
             // Volunteers only fetch their assigned contacts
             q = query(collection(db, 'contacts'), where('assignedTo', '==', user.id));
