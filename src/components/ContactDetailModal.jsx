@@ -58,6 +58,7 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
         
         updateContact(contact.id, updateData);
         alert('저장되었습니다.');
+        onClose();
     };
 
     const handleSaveEdit = () => {
