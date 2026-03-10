@@ -33,7 +33,14 @@ function normalizePhone(str) {
     if (!str) return null;
     let digits = String(str).replace(/\D/g, '');
     if (digits.startsWith('82')) digits = '0' + digits.substring(2);
-    if (!digits.startsWith('010')) return null; // We only want mobile numbers ideally, or allow others? Let's allow standard formats.
+    
+    // Check for Excel dropping the leading zero (e.g., 1012345678)
+    if (digits.length === 10 && digits.startsWith('10')) {
+        digits = '0' + digits;
+    }
+    
+    if (!digits.startsWith('010')) return null; 
+    
     // If it's exactly 11 digits:
     if (digits.length === 11) {
         return `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`;
@@ -93,15 +100,15 @@ function standardizeRow(row) {
         const val = values[index];
         if (!val) return;
 
-        if (key.includes('성명') || key.includes('이름') || key === '명') name = val;
+        if (key.includes('성명') || key.includes('이름') || key === '명' || key.includes('당원명')) name = val;
         else if (key.includes('연락처') || key.includes('전화') || key.includes('폰')) phone = val;
         else if (key.includes('직위') || key.includes('직함') || key.includes('구분') || key.includes('유형')) {
             title = title ? `${title} / ${val}` : val;
         }
-        else if (key.includes('읍면') || key.includes('주소') || key.includes('거주지')) {
+        else if (key.includes('읍면') || key.includes('주소') || key.includes('거주지') || key.includes('행정동')) {
             region = region ? `${region} ${val}` : val;
         }
-        else if (key.includes('비고') || key.includes('메모')) note = val;
+        else if (key.includes('비고') || key.includes('메모') || key.includes('시도당') || key.includes('위원회')) note = note ? `${note} / ${val}` : val;
     });
 
     // Fallback if headers are missing but values look like them
