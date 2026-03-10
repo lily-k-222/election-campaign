@@ -77,7 +77,7 @@ export const AdminDashboard = () => {
         });
     };
 
-    const unassignedCount = contacts.filter(c => !c.assignedTo).length;
+    const unassignedCount = contacts.filter(c => !c.assignedTo || c.assignedTo === 'UNASSIGNED').length;
 
     const handleAddClick = () => {
         setEditingContact(null);

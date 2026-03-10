@@ -72,7 +72,7 @@ export const CampaignProvider = ({ children }) => {
         if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
 
         try {
-            const unassigned = contacts.filter(c => !c.assignedTo).slice(0, count);
+            const unassigned = contacts.filter(c => !c.assignedTo || c.assignedTo === 'UNASSIGNED').slice(0, count);
             const batch = writeBatch(db);
             
             unassigned.forEach(c => {
@@ -92,9 +92,10 @@ export const CampaignProvider = ({ children }) => {
 
         try {
             const batch = writeBatch(db);
+            const actualVolunteerId = volunteerId === 'UNASSIGNED' ? null : volunteerId;
             contactIds.forEach(id => {
                 const contactRef = doc(db, 'contacts', id);
-                batch.update(contactRef, { assignedTo: volunteerId });
+                batch.update(contactRef, { assignedTo: actualVolunteerId });
             });
             await batch.commit();
         } catch (error) {
