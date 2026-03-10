@@ -177,14 +177,13 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
 
                         {/* 성향 선택 버튼 */}
                         <div className="flex flex-col gap-2">
-                            <label className="text-[13px] font-bold text-slate-600">유권자 성향 파악 (선택시 현재 성향에 실시간 반영)</label>
-                            <div className="flex flex-wrap gap-2">
+                            <label className="text-[13px] font-bold text-slate-600">유권자 성향 파악</label>
+                            <div className="flex flex-wrap gap-2 items-center">
                                 {supportOptions.map(option => (
                                     <button
                                         key={option}
                                         onClick={() => {
                                             setSupportLevel(option);
-                                            // 즉시 상태 반영을 원하면 여기서 updateContact 호출 가능
                                             updateContact(contact.id, { supportLevel: option });
                                         }}
                                         className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors border ${
@@ -196,6 +195,12 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                                         {option}
                                     </button>
                                 ))}
+                                <button 
+                                    onClick={() => updateContact(contact.id, { supportLevel })}
+                                    className="ml-auto px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-[12px] font-extrabold rounded-lg transition-colors shadow-sm active:scale-95 flex items-center gap-1"
+                                >
+                                    <Save size={14} /> 성향 저장
+                                </button>
                             </div>
                         </div>
 
