@@ -15,8 +15,7 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const initializeMockUsers = async () => {
             const initialUsers = [
-                { id: 'u1', email: 'admin@campaign.com', name: '슈퍼관리자', role: 'SUPER_ADMIN' },
-                { id: 'u4', email: 'wangjaelee@gmail.com', name: '이왕재', role: 'ADMIN' },
+                { id: 'u4', email: 'wangjaelee@gmail.com', name: '이왕재', role: 'SUPER_ADMIN' },
             ];
             
             for (const u of initialUsers) {
