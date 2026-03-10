@@ -149,12 +149,16 @@ export const CampaignProvider = ({ children }) => {
             const contactsRef = collection(db, 'contacts');
             const snap = await getDocs(contactsRef);
             
-            // Delete existing
-            const deleteBatch = writeBatch(db);
-            snap.docs.forEach(docSnap => {
-                deleteBatch.delete(docSnap.ref);
-            });
-            await deleteBatch.commit();
+            // Delete existing in chunks of 400 (Firestore limit is 500)
+            const docsList = snap.docs;
+            for (let i = 0; i < docsList.length; i += 400) {
+                const chunk = docsList.slice(i, i + 400);
+                const deleteBatch = writeBatch(db);
+                chunk.forEach(docSnap => {
+                    deleteBatch.delete(docSnap.ref);
+                });
+                await deleteBatch.commit();
+            }
 
             // Add 30 dummy
             const addBatch = writeBatch(db);
