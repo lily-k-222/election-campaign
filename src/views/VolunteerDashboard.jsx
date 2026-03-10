@@ -270,27 +270,26 @@ export const VolunteerDashboard = () => {
                                     </div>
                                     
                                     <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
-                                        {/* Status Toggle (Like Role Toggle) */}
-                                        <div className="flex justify-end gap-1 p-1 bg-slate-100 rounded-xl w-max shadow-inner border border-slate-200/60 grow sm:grow-0">
-                                            <button 
-                                                onClick={() => handleStatusChange(contact, 'UNASSIGNED')}
-                                                className={`px-4 py-1.5 text-[13px] font-extrabold rounded-lg transition-all ${contact.status !== 'CALLED' ? 'bg-white text-slate-800 shadow-sm scale-100' : 'text-slate-500 hover:text-slate-700 scale-95 hover:bg-slate-200/50'}`}
-                                            >대기</button>
-                                            <button 
-                                                onClick={() => handleStatusChange(contact, 'CALLED')}
-                                                className={`px-4 py-1.5 text-[13px] font-extrabold rounded-lg transition-all flex items-center gap-1 ${contact.status === 'CALLED' ? 'bg-green-500 text-white shadow-sm scale-100' : 'text-slate-500 hover:text-green-600 scale-95 hover:bg-green-50'}`}
-                                            >
-                                                {contact.status === 'CALLED' && <CheckCircle2 size={14} />}
-                                                완료
-                                            </button>
+                                        {/* Status Badge */}
+                                        <div className="flex justify-end gap-1 p-1 bg-transparent rounded-xl w-max grow sm:grow-0">
+                                            {contact.status === 'CALLED' ? (
+                                                <div className="px-3 py-1.5 text-[13px] font-extrabold rounded-lg bg-green-100 text-green-700 flex items-center gap-1 border border-green-200">
+                                                    <CheckCircle2 size={14} />
+                                                    완료
+                                                </div>
+                                            ) : (
+                                                <div className="px-3 py-1.5 text-[13px] font-extrabold rounded-lg bg-slate-100 text-slate-500 flex items-center gap-1 border border-slate-200">
+                                                    대기
+                                                </div>
+                                            )}
                                         </div>
                                         
                                         {/* View Detail Button */}
                                         <button 
                                             onClick={() => openContactDetail(contact)}
-                                            className="px-4 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] text-white text-[13px] font-extrabold rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1 shrink-0 ml-auto sm:ml-0"
+                                            className="px-5 py-2.5 bg-[#1e3a8a] text-white hover:bg-[#1e40af] text-[14px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2 shrink-0 ml-auto sm:ml-0 border border-[#1e3a8a]"
                                         >
-                                            <Phone size={14} /> 연락처
+                                            <Phone size={16} className="animate-pulse" /> 전화 걸기
                                         </button>
                                     </div>
                                 </div>
