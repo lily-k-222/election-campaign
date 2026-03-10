@@ -38,17 +38,23 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
     const handleSaveAll = () => {
         let updateData = { supportLevel, status: 'CALLED' };
         
-        if (newRecord.trim()) {
-            const now = new Date();
-            const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            const recordEntry = `[${dateString}] ${newRecord.trim()}\n(성향: ${supportLevel})`;
-            
-            updateData.notes = contact.notes 
-                ? `${contact.notes}\n${recordEntry}` 
-                : recordEntry;
-                
-            setNewRecord('');
+        const now = new Date();
+        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        const recordText = newRecord.trim() ? `${newRecord.trim()}\n` : '';
+        const recordEntry = `[${dateString}] ${recordText}(성향: ${supportLevel})`;
+        
+        let previousNotes = contact.notes;
+        // Ignore the default test note when appending a real record
+        if (previousNotes === '테스트용 데이터입니다.') {
+            previousNotes = '';
         }
+        
+        updateData.notes = previousNotes 
+            ? `${previousNotes}\n${recordEntry}` 
+            : recordEntry;
+            
+        setNewRecord('');
         
         updateContact(contact.id, updateData);
         alert('저장되었습니다.');
