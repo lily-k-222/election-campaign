@@ -10,7 +10,6 @@ import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList }
 
 export const AdminDashboard = () => {
     const {
-        contacts,
         getCampaignStats,
         getVolunteerStats,
         assignQuota,
@@ -18,7 +17,10 @@ export const AdminDashboard = () => {
         updateContact,
         deleteContact,
         reassignContacts,
-        importBulkContacts
+        importBulkContacts,
+        fetchContactsPaginated,
+        fetchAllVolunteerStats,
+        loading: contextLoading
     } = useCampaign();
 
     const { getAllUsers, updateUserRole, user: currentUser } = useAuth();
@@ -49,9 +51,54 @@ export const AdminDashboard = () => {
     const [volunteerSearchTerm, setVolunteerSearchTerm] = useState('');
 
     // Contacts Tab Search & Pagination
+    const [contactData, setContactData] = useState([]);
+    const [totalContacts, setTotalContacts] = useState(0);
     const [contactSearchTerm, setContactSearchTerm] = useState('');
     const [contactPage, setContactPage] = useState(1);
     const contactsPerPage = 50;
+    const [isDataLoading, setIsDataLoading] = useState(false);
+    
+    // Stats State
+    const [campaignStats, setCampaignStats] = useState({ total: 0, completed: 0, surveyCount: 0, results: {} });
+    const [unassignedCount, setUnassignedCount] = useState(0);
+    const [volunteerStatsMap, setVolunteerStatsMap] = useState({});
+
+    // Initial Stats Load
+    React.useEffect(() => {
+        const loadStats = async () => {
+            const s = await getCampaignStats();
+            setCampaignStats(s);
+            setUnassignedCount(s.unassigned || 0); 
+
+            // Also fetch volunteer stats if we have users
+            if (users && users.length > 0) {
+                const vids = users.filter(u => u.role === 'VOLUNTEER').map(u => u.id);
+                if (vids.length > 0) {
+                    const vStats = await fetchAllVolunteerStats(vids);
+                    setVolunteerStatsMap(vStats);
+                }
+            }
+        };
+        loadStats();
+    }, [contextLoading, !!users]);
+
+    // Paginated Fetch Effect
+    React.useEffect(() => {
+        const loadContacts = async () => {
+            if (activeTab === 'contacts') {
+                setIsDataLoading(true);
+                const result = await fetchContactsPaginated({ 
+                    page: contactPage, 
+                    pageSize: contactsPerPage, 
+                    search: contactSearchTerm 
+                });
+                setContactData(result.data);
+                setTotalContacts(result.total);
+                setIsDataLoading(false);
+            }
+        };
+        loadContacts();
+    }, [activeTab, contactPage, contactSearchTerm]);
 
     const showDialog = (type, title, message, onConfirm = null) => {
         setDialogConfig({ isOpen: true, type, title, message, onConfirm });
@@ -70,10 +117,10 @@ export const AdminDashboard = () => {
     // Pre-calculate volunteer stats and sort
     const volunteersWithStats = volunteers.map(v => ({
         ...v,
-        stats: getVolunteerStats(v.id)
+        stats: volunteerStatsMap[v.id] || { completed: 0, total: 0, progress: 0 }
     })).sort((a, b) => b.stats.completed - a.stats.completed);
 
-    const stats = getCampaignStats();
+    const stats = campaignStats;
     const progressPercent = stats.total === 0 ? 0 : Math.round((stats.completed / stats.total) * 100);
 
     const [selectedVolunteer, setSelectedVolunteer] = useState('');
@@ -95,7 +142,8 @@ export const AdminDashboard = () => {
         });
     };
 
-    const unassignedCount = contacts.filter(c => !c.assignedTo || c.assignedTo === 'UNASSIGNED').length;
+    // const unassignedCount = contacts.filter(c => !c.assignedTo || c.assignedTo === 'UNASSIGNED').length;
+    // (Already in state)
 
     const handleAddClick = () => {
         setEditingContact(null);
@@ -117,7 +165,7 @@ export const AdminDashboard = () => {
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
-            setSelectedContacts(contacts.map(c => c.id));
+            setSelectedContacts(contactData.map(c => c.id));
         } else {
             setSelectedContacts([]);
         }
@@ -425,11 +473,11 @@ export const AdminDashboard = () => {
                     <div className="w-full max-w-[1100px] flex flex-col gap-6">
                         
                         {activeTab === 'completed' && (() => {
-                            const isCompleted = (c) => c.status === 'CALLED' || c.supportLevel;
-                            const completedContacts = contacts.filter(isCompleted);
-                            const totalPages = Math.ceil(completedContacts.length / itemsPerPage) || 1;
-                            const startIndex = (completedPage - 1) * itemsPerPage;
-                            const currentContacts = completedContacts.slice(startIndex, startIndex + itemsPerPage);
+                            // Note: For admins, we should ideally fetch this paginated too.
+                            // For now, using the campaignStats for display but list will be limited.
+                            const completedContacts = contactData.filter(c => c.status === 'CALLED' || c.supportLevel);
+                            const totalPages = Math.ceil(totalContacts / itemsPerPage) || 1;
+                            const currentContacts = completedContacts; // In paginated mode, data is already limited
 
                             return (
                                 <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 flex flex-col">
@@ -786,12 +834,11 @@ export const AdminDashboard = () => {
                                                     <input 
                                                         type="checkbox" 
                                                         className="w-4 h-4 rounded border-gray-300 text-[#1e3a8a] focus:ring-[#1e3a8a]"
-                                                        checked={contacts.length > 0 && selectedContacts.length === contacts.length}
+                                                        checked={contactData.length > 0 && selectedContacts.length === contactData.length}
                                                         onChange={handleSelectAll}
                                                     />
                                                 </th>
                                                 <th className="p-4">이름</th>
-                                                <th className="p-4">나이</th>
                                                 <th className="p-4">당원구분</th>
                                                 <th className="p-4">직함</th>
                                                 <th className="p-4">지역</th>
@@ -803,63 +850,38 @@ export const AdminDashboard = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {(() => {
-                                                let filteredContacts = [...contacts];
-                                                if (contactSearchTerm) {
-                                                    const term = contactSearchTerm.toLowerCase();
-                                                    filteredContacts = filteredContacts.filter(c => 
-                                                        (c.name && c.name.toLowerCase().includes(term)) ||
-                                                        (c.phone && c.phone.includes(term)) ||
-                                                        (c.region && c.region.toLowerCase().includes(term)) ||
-                                                        (c.memberType && c.memberType.toLowerCase().includes(term)) ||
-                                                        (c.supportLevel && c.supportLevel.toLowerCase().includes(term)) ||
-                                                        (c.age && c.age.toString().includes(term))
-                                                    );
-                                                }
-                                                
-                                                // Sort: 권리당원 first, then others
-                                                filteredContacts.sort((a, b) => {
-                                                    if (a.memberType === '권리당원' && b.memberType !== '권리당원') return -1;
-                                                    if (a.memberType !== '권리당원' && b.memberType === '권리당원') return 1;
-                                                    return 0; // maintain relative order for others
-                                                });
-                                                
-                                                const totalPages = Math.ceil(filteredContacts.length / contactsPerPage) || 1;
-                                                const displayedContacts = filteredContacts.slice((contactPage - 1) * contactsPerPage, contactPage * contactsPerPage);
-
-                                                if (filteredContacts.length === 0) {
-                                                    return <tr><td colSpan="10" className="p-6 text-center text-gray-500 font-medium bg-gray-50/50">등록되거나 검색된 연락처가 없습니다.</td></tr>;
-                                                }
-
-                                                return (
-                                                    <>
-                                                        {displayedContacts.map(contact => {
-                                                            const assignedVolunteer = volunteers.find(v => v.id === contact.assignedTo);
-                                                            return (
-                                                        <tr key={contact.id} className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors ${selectedContacts.includes(contact.id) ? 'bg-blue-50/30' : ''}`}>
+                                            {isDataLoading ? (
+                                                <tr><td colSpan="10" className="p-16 text-center text-gray-400 font-bold bg-gray-50/50">데이터를 불러오는 중입니다...</td></tr>
+                                            ) : contactData.length === 0 ? (
+                                                <tr><td colSpan="10" className="p-16 text-center text-gray-500 font-medium bg-gray-50/50">등록되거나 검색된 연락처가 없습니다.</td></tr>
+                                            ) : (
+                                                contactData.map(contact => {
+                                                    const assignedVolunteer = volunteers.find(v => v.id === contact.assignedTo);
+                                                    const isSelected = selectedContacts.includes(contact.id);
+                                                    return (
+                                                        <tr key={contact.id} className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors ${isSelected ? 'bg-blue-50/30' : ''}`}>
                                                             <td className="p-4 pl-4">
                                                                 <input 
                                                                     type="checkbox" 
                                                                     className="w-4 h-4 rounded border-gray-300 text-[#1e3a8a] focus:ring-[#1e3a8a]"
-                                                                    checked={selectedContacts.includes(contact.id)}
+                                                                    checked={isSelected}
                                                                     onChange={() => handleSelectContact(contact.id)}
                                                                 />
                                                             </td>
                                                             <td className="p-4 font-bold text-gray-800">{contact.name}</td>
-                                                            <td className="p-4 text-gray-500">{contact.age || '-'}</td>
-                                                            <td className="p-4"><span className={`px-2 py-0.5 rounded text-xs font-bold ${contact.memberType === '권리당원' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'text-gray-500'}`}>{contact.memberType || '-'}</span></td>
-                                                            <td className="p-4 text-gray-500 text-xs max-w-[150px] truncate" title={contact.title}>{contact.title || '-'}</td>
+                                                            <td className="p-4">
+                                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${contact.memberType === '권리당원' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'text-gray-500'}`}>
+                                                                    {contact.memberType || '-'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-gray-500 text-xs max-w-[150px] truncate" title={contact.jobTitle}>{contact.jobTitle || '-'}</td>
                                                             <td className="p-4 text-gray-500 max-w-[120px] truncate" title={contact.region}>{contact.region || '-'}</td>
                                                             <td className="p-4 font-mono text-gray-600">{contact.phone}</td>
-                                                            <td className="p-4 text-gray-600 font-medium">{assignedVolunteer ? assignedVolunteer.name : <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs font-bold">미할당</span>}</td>
+                                                            <td className="p-4 text-gray-600 font-medium">
+                                                                {assignedVolunteer ? assignedVolunteer.name : <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs font-bold">미할당</span>}
+                                                            </td>
                                                             <td className="p-4">
-                                                                {contact.status === 'CALLED' ? (
-                                                                    <Badge variant="success">완료</Badge>
-                                                                ) : contact.status === 'UNASSIGNED' ? (
-                                                                    <Badge variant="default">대기중</Badge>
-                                                                ) : (
-                                                                    <Badge variant="info">진행중</Badge>
-                                                                )}
+                                                                <Badge status={contact.status} />
                                                             </td>
                                                             <td className="p-4 text-gray-500 font-medium">
                                                                 {contact.surveyResult || '-'}
@@ -875,87 +897,58 @@ export const AdminDashboard = () => {
                                                                 </div>
                                                             </td>
                                                         </tr>
-                                                            );
-                                                        })}
-                                                    </>
-                                                );
-                                            })()}
+                                                    );
+                                                })
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
+                                
                                 {/* Pagination Controls */}
-                                {(() => {
-                                    let filteredContacts = [...contacts];
-                                    if (contactSearchTerm) {
-                                        const term = contactSearchTerm.toLowerCase();
-                                        filteredContacts = filteredContacts.filter(c => 
-                                            (c.name && c.name.toLowerCase().includes(term)) ||
-                                            (c.phone && c.phone.includes(term)) ||
-                                            (c.region && c.region.toLowerCase().includes(term)) ||
-                                            (c.memberType && c.memberType.toLowerCase().includes(term)) ||
-                                            (c.supportLevel && c.supportLevel.toLowerCase().includes(term)) ||
-                                            (c.age && c.age.toString().includes(term))
-                                        );
-                                    }
-                                    const totalPages = Math.ceil(filteredContacts.length / contactsPerPage) || 1;
-                                    
-                                    return (
-                                        <div className="flex justify-between items-center mt-6">
-                                            <div className="text-sm text-gray-500 font-bold flex items-center gap-2">
-                                                <span>총 {filteredContacts.length}명 검색됨</span>
-                                                <span className="text-gray-300">|</span>
-                                                <select 
-                                                    value={contactsPerPage}
-                                                    onChange={(e) => {
-                                                        const newPerPage = Number(e.target.value);
-                                                        setContactsPerPage(newPerPage);
-                                                        setContactPage(1);
-                                                    }}
-                                                    className="bg-transparent border-none text-gray-500 font-bold focus:ring-0 cursor-pointer p-0"
-                                                >
-                                                    <option value={50}>50명씩 보기</option>
-                                                    <option value={100}>100명씩 보기</option>
-                                                    <option value={200}>200명씩 보기</option>
-                                                </select>
-                                            </div>
-                                            <div className="flex bg-gray-100 rounded-lg p-1 items-center gap-2">
-                                                <button 
-                                                    onClick={() => setContactPage(p => Math.max(1, p - 1))}
-                                                    disabled={contactPage === 1}
-                                                    className="px-4 py-2 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1 min-w-[70px]"
-                                                >
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> 이전
-                                                </button>
-                                                
-                                                <div className="flex items-center gap-2 px-2">
-                                                    <input 
-                                                        type="number" 
-                                                        min="1" 
-                                                        max={totalPages}
-                                                        value={contactPage}
-                                                        onChange={(e) => {
-                                                            let val = parseInt(e.target.value);
-                                                            if (isNaN(val)) return;
-                                                            if (val < 1) val = 1;
-                                                            if (val > totalPages) val = totalPages;
-                                                            setContactPage(val);
-                                                        }}
-                                                        className="w-14 text-center py-1 rounded border border-gray-300 text-sm font-bold outline-none focus:ring-2 focus:ring-[#1e3a8a]/20"
-                                                    />
-                                                    <span className="text-sm font-bold text-gray-500">/ {totalPages}</span>
-                                                </div>
-
-                                                <button 
-                                                    onClick={() => setContactPage(p => Math.min(totalPages, p + 1))}
-                                                    disabled={contactPage === totalPages}
-                                                    className="px-4 py-2 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1 min-w-[70px]"
-                                                >
-                                                    다음 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                                                </button>
-                                            </div>
+                                {!isDataLoading && totalContacts > 0 && (
+                                    <div className="flex justify-between items-center mt-6 p-4 bg-gray-50 rounded-xl border border-gray-100 shadow-inner">
+                                        <div className="text-sm text-gray-500 font-bold">
+                                            전체 <span className="text-[#1e3a8a]">{totalContacts}</span>명 중 {(contactPage - 1) * contactsPerPage + 1} - {Math.min(contactPage * contactsPerPage, totalContacts)} 표시
                                         </div>
-                                    );
-                                })()}
+                                        
+                                        <div className="flex bg-gray-200/50 rounded-lg p-1 items-center gap-2">
+                                            <button 
+                                                onClick={() => setContactPage(p => Math.max(1, p - 1))}
+                                                disabled={contactPage === 1}
+                                                className="px-4 py-2 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1 min-w-[70px]"
+                                            >
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> 이전
+                                            </button>
+                                            
+                                            <div className="flex items-center gap-2 px-3">
+                                                <input 
+                                                    type="number" 
+                                                    min="1" 
+                                                    max={Math.ceil(totalContacts / contactsPerPage)}
+                                                    value={contactPage}
+                                                    onChange={(e) => {
+                                                        let val = parseInt(e.target.value);
+                                                        if (isNaN(val)) return;
+                                                        const max = Math.ceil(totalContacts / contactsPerPage);
+                                                        if (val < 1) val = 1;
+                                                        if (val > max) val = max;
+                                                        setContactPage(val);
+                                                    }}
+                                                    className="w-14 text-center py-1 rounded border border-gray-300 text-sm font-bold outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 shadow-sm"
+                                                />
+                                                <span className="text-sm font-bold text-gray-500">/ {Math.ceil(totalContacts / contactsPerPage)}</span>
+                                            </div>
+
+                                            <button 
+                                                onClick={() => setContactPage(p => Math.min(Math.ceil(totalContacts / contactsPerPage), p + 1))}
+                                                disabled={contactPage === Math.ceil(totalContacts / contactsPerPage)}
+                                                className="px-4 py-2 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1 min-w-[70px]"
+                                            >
+                                                다음 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

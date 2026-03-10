@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, googleProvider } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, updateDoc, query, where, limit } from 'firebase/firestore';
 
 // Roles: 'SUPER_ADMIN', 'ADMIN', 'VOLUNTEER', 'UNAUTHORIZED'
 export const AuthContext = createContext(null);
@@ -68,13 +68,14 @@ export const AuthProvider = ({ children }) => {
                         // Check if they are matched to a mock user by email (transitional phase)
                         try {
                             const usersRef = collection(db, 'users');
-                            const usersSnap = await getDocs(usersRef);
+                            const q = query(usersRef, where('email', '==', firebaseUser.email), limit(1));
+                            const usersSnap = await getDocs(q);
                             let existingUser = null;
-                            usersSnap.forEach(doc => {
-                                if (doc.data().email === firebaseUser.email) {
-                                    existingUser = { id: doc.id, ...doc.data() };
-                                }
-                            });
+                            
+                            if (!usersSnap.empty) {
+                                const doc = usersSnap.docs[0];
+                                existingUser = { id: doc.id, ...doc.data() };
+                            }
 
                             if (existingUser) {
                                 let assignedRole = existingUser.role;

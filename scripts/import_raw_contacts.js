@@ -223,26 +223,25 @@ async function processFiles() {
         const docId = `contact_raw_${Date.now()}_${i}`;
         
         // Final note combination involving title if they have one but we want it visible
-        const finalNote = c.title ? `[최신직함: ${c.title}]\n${c.notes}` : c.notes;
-
         return {
             id: docId,
             name: c.name,
             phone: c.phone,
             age: '', // Derived if possible, else empty
+            jobTitle: c.title || '', // Added explicitly
             memberType: c.memberType,
             region: c.region,
             status: 'UNASSIGNED',
             surveyResult: null,
             supportLevel: null,
             assignedTo: null,
-            notes: finalNote
+            notes: c.notes || '' // Removed title prefix from notes as it's now in jobTitle
         };
     });
 
-    const outputPath = path.join(__dirname, '..', 'public', 'merged_contacts.json');
+    const outputPath = path.join(__dirname, '..', 'src', 'data', 'contacts.json');
     fs.writeFileSync(outputPath, JSON.stringify(finalContacts, null, 2));
-    console.log(`✨ All ${finalContacts.length} merged contacts have been written to public/merged_contacts.json!`);
+    console.log(`✨ All ${finalContacts.length} merged contacts have been written to src/data/contacts.json!`);
     process.exit(0);
 }
 
