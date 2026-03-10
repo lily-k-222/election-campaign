@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { ContactFormModal } from '../components/ContactFormModal';
+import { ContactDetailModal } from '../components/ContactDetailModal';
 import { DialogModal } from '../components/DialogModal';
 import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList } from 'lucide-react';
 
@@ -23,6 +24,9 @@ export const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('campaign'); // 'campaign' or 'users' or 'contacts'
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [editingContact, setEditingContact] = useState(null);
+    
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [viewingContact, setViewingContact] = useState(null);
     
     // Custom Modal State
     const [dialogConfig, setDialogConfig] = useState({ isOpen: false, type: 'alert', title: '', message: '', onConfirm: null });
@@ -71,8 +75,8 @@ export const AdminDashboard = () => {
     };
 
     const handleEditClick = (contact) => {
-        setEditingContact(contact);
-        setIsContactModalOpen(true);
+        setViewingContact(contact);
+        setIsDetailModalOpen(true);
     };
 
     const handleContactSubmit = (formData) => {
@@ -515,6 +519,12 @@ export const AdminDashboard = () => {
                 onClose={() => setIsContactModalOpen(false)}
                 onSubmit={handleContactSubmit}
                 initialData={editingContact}
+            />
+            
+            <ContactDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                contact={viewingContact}
             />
             
             <DialogModal
