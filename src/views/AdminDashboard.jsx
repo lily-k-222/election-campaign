@@ -9,7 +9,7 @@ import { DialogModal } from '../components/DialogModal';
 import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList } from 'lucide-react';
 
 export const AdminDashboard = () => {
-    const {
+        contacts,
         getCampaignStats,
         getVolunteerStats,
         assignQuota,
@@ -18,6 +18,7 @@ export const AdminDashboard = () => {
         deleteContact,
         reassignContacts,
         importBulkContacts,
+        fetchContactsPaginated,
         fetchAllVolunteerStats,
         resetDatabase,
         loading: contextLoading
@@ -321,7 +322,7 @@ export const AdminDashboard = () => {
                                 {/* Left side */}
                                 <div className="flex-1 flex flex-col justify-between">
                                     <div>
-                                        <span className="text-[14px] font-bold text-gray-800 block mb-2 tracking-tight">미할당 연락처 (전체 {contacts.length}명 대비):</span>
+                                        <span className="text-[14px] font-bold text-gray-800 block mb-2 tracking-tight">미할당 연락처 (전체 {stats.total}명 대비):</span>
                                         <div className="flex items-center gap-2">
                                             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-400 text-white pb-0.5">
                                                 <UserIcon size={18} fill="currentColor" />
@@ -699,7 +700,7 @@ export const AdminDashboard = () => {
                                             </thead>
                                             <tbody>
                                                 {(() => {
-                                                    let list = allUsers.filter(u => u.role !== 'UNAUTHORIZED' && u.role !== 'REJECTED');
+                                                    let list = users.filter(u => u.role !== 'UNAUTHORIZED' && u.role !== 'REJECTED');
                                                     if (userRoleSort !== 'ALL') {
                                                         list = list.filter(u => u.role === userRoleSort);
                                                     }

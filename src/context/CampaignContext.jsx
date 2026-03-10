@@ -14,6 +14,7 @@ export const CampaignProvider = ({ children }) => {
     // Initial setup: Seed mock data to Firestore if it's empty
     useEffect(() => {
         const seedData = async () => {
+            const contactsRef = collection(db, 'contacts');
             const q = query(contactsRef, limit(1));
             const snap = await getDocs(q);
             if (snap.empty) {
