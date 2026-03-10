@@ -74,15 +74,24 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                     </h2>
                     <div className="flex items-center gap-2">
                         {isEditing ? (
-                            <button onClick={handleSaveEdit} className="flex items-center gap-1 bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
-                                <Save size={16} /> 저장
+                            <button onClick={handleSaveEdit} className="flex items-center gap-1 bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm">
+                                <Save size={16} /> 수정완료
                             </button>
                         ) : (
                             <button onClick={() => setIsEditing(true)} className="flex items-center gap-1 bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
                                 <Edit2 size={16} /> 수정
                             </button>
                         )}
-                        <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors active:scale-95 ml-1">
+                        <button 
+                            onClick={() => {
+                                updateContact(contact.id, { supportLevel });
+                                alert('성향이 안전하게 저장되었습니다.');
+                            }}
+                            className="flex items-center gap-1 bg-slate-800 hover:bg-slate-900 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm text-white border border-slate-600 ml-1"
+                        >
+                            <Save size={16} /> 성향 저장
+                        </button>
+                        <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors active:scale-95 ml-2">
                             <X size={20} />
                         </button>
                     </div>
@@ -195,12 +204,6 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                                         {option}
                                     </button>
                                 ))}
-                                <button 
-                                    onClick={() => updateContact(contact.id, { supportLevel })}
-                                    className="ml-auto px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-[12px] font-extrabold rounded-lg transition-colors shadow-sm active:scale-95 flex items-center gap-1"
-                                >
-                                    <Save size={14} /> 성향 저장
-                                </button>
                             </div>
                         </div>
 
