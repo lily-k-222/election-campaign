@@ -36,7 +36,7 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
     const supportOptions = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
 
     const handleSaveAll = () => {
-        let updateData = { supportLevel };
+        let updateData = { supportLevel, status: 'CALLED' };
         
         if (newRecord.trim()) {
             const now = new Date();

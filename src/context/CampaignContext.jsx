@@ -194,18 +194,19 @@ export const CampaignProvider = ({ children }) => {
 
     const getVolunteerStats = (volunteerId) => {
         const assigned = contacts.filter(c => c.assignedTo === volunteerId);
-        const completed = assigned.filter(c => c.status === 'CALLED');
+        const completedContacts = assigned.filter(c => c.status === 'CALLED' || c.supportLevel || (c.notes && c.notes !== '테스트용 데이터입니다.'));
         return {
             total: assigned.length,
-            completed: completed.length,
-            remaining: assigned.length - completed.length,
-            progress: assigned.length === 0 ? 0 : Math.round((completed.length / assigned.length) * 100)
+            completed: completedContacts.length,
+            remaining: assigned.length - completedContacts.length,
+            progress: assigned.length === 0 ? 0 : Math.round((completedContacts.length / assigned.length) * 100)
         };
     };
 
     const getCampaignStats = () => {
         const total = contacts.length;
-        const completed = contacts.filter(c => c.status === 'CALLED' || c.supportLevel || c.notes).length;
+        const isCompleted = (c) => c.status === 'CALLED' || c.supportLevel || (c.notes && c.notes !== '테스트용 데이터입니다.');
+        const completed = contacts.filter(isCompleted).length;
 
         // Tally results
         const results = {
@@ -215,7 +216,7 @@ export const CampaignProvider = ({ children }) => {
             '지지하지 않음': 0,
             '다른후보 지지': 0
         };
-        contacts.filter(c => c.status === 'CALLED' || c.supportLevel || c.notes).forEach(c => {
+        contacts.filter(isCompleted).forEach(c => {
             const level = c.supportLevel || '관심없음';
             if (results[level] !== undefined) {
                 results[level]++;
