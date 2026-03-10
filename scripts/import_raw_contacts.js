@@ -58,9 +58,10 @@ function extractYear(filename) {
 }
 
 // Helper: Determine File Type Flags
-function getFileFlags(filename) {
-    const isPartyFile = filename.includes('당원');
-    const isRightsMember = filename.includes('권리');
+function getFileFlags(filename, sheetName = '') {
+    const combined = `${filename} ${sheetName}`.toLowerCase();
+    const isRightsMember = combined.includes('권리');
+    const isPartyFile = combined.includes('당원');
     return {
         memberType: isPartyFile ? (isRightsMember ? '권리당원' : '일반당원') : null
     };
@@ -132,15 +133,19 @@ async function processFiles() {
         const filePath = path.join(RAW_DATA_DIR, file);
         const ext = path.extname(file).toLowerCase();
         const year = extractYear(file);
-        const { memberType } = getFileFlags(file);
 
         let rows = [];
         if (ext === '.csv') {
-            rows = await parseCSV(filePath);
+            const csvRows = await parseCSV(filePath);
+            csvRows.forEach(r => r._sheetName = 'CSV');
+            rows = csvRows;
         } else if (ext === '.xlsx' || ext === '.xls') {
             const workbook = xlsx.readFile(filePath);
-            const sheetName = workbook.SheetNames[0];
-            rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+            workbook.SheetNames.forEach(sheetName => {
+                const sheetRows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                sheetRows.forEach(r => r._sheetName = sheetName);
+                rows = rows.concat(sheetRows);
+            });
         } else {
             continue;
         }
@@ -148,6 +153,7 @@ async function processFiles() {
         console.log(`Processing ${file} (${rows.length} rows) - Year: ${year}`);
 
         for (const row of rows) {
+            const { memberType } = getFileFlags(file, row._sheetName);
             const standardized = standardizeRow(row);
             const phone = normalizePhone(standardized.phone);
             if (!phone) continue;
@@ -160,8 +166,8 @@ async function processFiles() {
                     title: standardized.title || '',
                     memberType: memberType || '일반구민',
                     latestYear: year,
-                    notes: standardized.note ? `[${file}]: ${standardized.note}` : '',
-                    sourceFiles: [file]
+                    notes: standardized.note ? `[${file}-${row._sheetName}]: ${standardized.note}` : '',
+                    sourceFiles: [`${file}(${row._sheetName})`]
                 });
             } else {
                 const existing = contactsMap.get(phone);
@@ -178,26 +184,32 @@ async function processFiles() {
 
                 // Handle titles based on year
                 if (standardized.title && standardized.title !== existing.title) {
-                    if (year >= existing.latestYear) {
-                        // Current is newer -> Move old title to notes, update to new
-                        if (existing.title) {
-                            existing.notes = appendNote(existing.notes, `과거 직함(${existing.latestYear}): ${existing.title}`);
-                        }
+                    if (!existing.title) {
                         existing.title = standardized.title;
                         existing.latestYear = year;
-                    } else {
+                    } else if (year > existing.latestYear) {
+                        // Current is newer -> Move old title to notes, update to new
+                        existing.notes = appendNote(existing.notes, `과거 직함(${existing.latestYear}): ${existing.title}`);
+                        existing.title = standardized.title;
+                        existing.latestYear = year;
+                    } else if (year < existing.latestYear) {
                         // Current is older -> Add this older title to notes directly
                         existing.notes = appendNote(existing.notes, `과거 직함(${year}): ${standardized.title}`);
+                    } else { // year === existing.latestYear
+                        if (!existing.title.includes(standardized.title)) {
+                            existing.title = `${existing.title} / ${standardized.title}`;
+                        }
                     }
                 }
 
                 // Append any extra notes
                 if (standardized.note) {
-                    existing.notes = appendNote(existing.notes, `[${file}]: ${standardized.note}`);
+                    existing.notes = appendNote(existing.notes, `[${file}-${row._sheetName}]: ${standardized.note}`);
                 }
 
-                if (!existing.sourceFiles.includes(file)) {
-                    existing.sourceFiles.push(file);
+                const sourceKey = `${file}(${row._sheetName})`;
+                if (!existing.sourceFiles.includes(sourceKey)) {
+                    existing.sourceFiles.push(sourceKey);
                 }
             }
         }

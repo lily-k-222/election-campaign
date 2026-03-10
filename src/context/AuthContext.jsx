@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const initializeMockUsers = async () => {
             const initialUsers = [
-                { id: 'u4', email: 'wangjaelee@gmail.com', name: '이왕재', role: 'SUPER_ADMIN' },
+                { id: 'u4', email: 'wangjaelee@gmail.com', name: '이왕재', role: 'ADMIN' },
             ];
             
             for (const u of initialUsers) {
@@ -40,13 +40,13 @@ export const AuthProvider = ({ children }) => {
                 if (userDoc.exists()) {
                     let userData = userDoc.data();
                     
-                    // 관리자 긴급 복구: 지정된 이메일은 무조건 최고 관리자로 승격 (최초 1회 록인 시 UNAUTHORIZED 방지)
+                    // 관리자 긴급 복구: 지정된 이메일은 무조건 관리자로 승격
                     if (
                         (userData.email === 'soomin8454@gmail.com' || userData.email === 'wangjaelee@gmail.com') && 
-                        (userData.role !== 'SUPER_ADMIN' && userData.role !== 'ADMIN')
+                        userData.role !== 'ADMIN'
                     ) {
-                        userData.role = 'SUPER_ADMIN';
-                        await updateDoc(userRef, { role: 'SUPER_ADMIN' });
+                        userData.role = 'ADMIN';
+                        await updateDoc(userRef, { role: 'ADMIN' });
                     }
                     
                     setUser({ id: firebaseUser.uid, ...userData });
@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
                         // For simplicity in this demo, just map UID to data
                         let assignedRole = existingUser.role;
                         if (firebaseUser.email === 'soomin8454@gmail.com' || firebaseUser.email === 'wangjaelee@gmail.com') {
-                            assignedRole = 'SUPER_ADMIN';
+                            assignedRole = 'ADMIN';
                         }
                         
                         await setDoc(doc(db, 'users', firebaseUser.uid), {
@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }) => {
                         // Brand new user
                         let assignedRole = 'UNAUTHORIZED'; // Require admin approval by default
                         if (firebaseUser.email === 'soomin8454@gmail.com' || firebaseUser.email === 'wangjaelee@gmail.com') {
-                            assignedRole = 'SUPER_ADMIN';
+                            assignedRole = 'ADMIN';
                         }
 
                         const newUser = {
@@ -102,7 +102,7 @@ export const AuthProvider = ({ children }) => {
 
     // Listen to all users if Admin
     useEffect(() => {
-        if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN')) return;
+        if (!user || user.role !== 'ADMIN') return;
         
         const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
             const usersList = [];
@@ -163,7 +163,7 @@ export const AuthProvider = ({ children }) => {
 
     // Admin function: Update user role
     const updateUserRole = async (userId, newRole) => {
-        if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') return;
+        if (user.role !== 'ADMIN') return;
         
         try {
             await updateDoc(doc(db, 'users', userId), { role: newRole });

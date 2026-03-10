@@ -46,7 +46,7 @@ export const CampaignProvider = ({ children }) => {
         }
 
         let q;
-        if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') {
+        if (user.role === 'ADMIN') {
             // Fetch all contacts (warning: for large DBs, use server-side pagination)
             q = query(collection(db, 'contacts'));
         } else {
@@ -68,7 +68,7 @@ export const CampaignProvider = ({ children }) => {
 
     // Admin action: Assign a batch of unassigned contacts to a volunteer
     const assignQuota = async (volunteerId, count) => {
-        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
+        if (user?.role !== 'ADMIN') return;
 
         try {
             const unassigned = contacts.filter(c => !c.assignedTo || c.assignedTo === 'UNASSIGNED').slice(0, count);
@@ -87,7 +87,7 @@ export const CampaignProvider = ({ children }) => {
 
     // Admin action: Reassign specific contacts to a volunteer
     const reassignContacts = async (contactIds, volunteerId) => {
-        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
+        if (user?.role !== 'ADMIN') return;
 
         try {
             const batch = writeBatch(db);
@@ -118,7 +118,7 @@ export const CampaignProvider = ({ children }) => {
 
     // Admin action: Add a new contact
     const addContact = async (contactData) => {
-        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
+        if (user?.role !== 'ADMIN') return;
 
         try {
             const newId = `c_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -145,7 +145,7 @@ export const CampaignProvider = ({ children }) => {
 
     // Admin action: Delete a contact
     const deleteContact = async (contactId) => {
-        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
+        if (user?.role !== 'ADMIN') return;
         try {
             await deleteDoc(doc(db, 'contacts', contactId));
         } catch (error) {
@@ -153,63 +153,9 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
-    // Admin action: Reset DB with 30 Test Contacts
-    const resetTestData = async () => {
-        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
-        
-        const confirmReset = window.confirm("경고: 현재 DB의 '모든 실제 연락처'가 영구 삭제되고 30개의 임시 테스트 데이터로 교체됩니다. 계속하시겠습니까?");
-        if (!confirmReset) return;
-
-        try {
-            setLoading(true);
-            const contactsRef = collection(db, 'contacts');
-            const snap = await getDocs(contactsRef);
-            
-            // Delete existing in chunks of 400 (Firestore limit is 500)
-            const docsList = snap.docs;
-            for (let i = 0; i < docsList.length; i += 400) {
-                const chunk = docsList.slice(i, i + 400);
-                const deleteBatch = writeBatch(db);
-                chunk.forEach(docSnap => {
-                    deleteBatch.delete(docSnap.ref);
-                });
-                await deleteBatch.commit();
-            }
-
-            // Add 30 dummy
-            const addBatch = writeBatch(db);
-            for (let i = 1; i <= 30; i++) {
-                const newId = `test_c_${Date.now()}_${i}`;
-                const docRef = doc(db, 'contacts', newId);
-                addBatch.set(docRef, {
-                    id: newId,
-                    name: `테스트당원 ${i}`,
-                    age: `${20 + (i % 5)*10}대`,
-                    memberType: i % 2 === 0 ? '권리당원' : '일반당원',
-                    region: `테스트동 ${i}구`,
-                    phone: `010-1234-1234`, // requested by user
-                    status: 'UNASSIGNED',
-                    surveyResult: null,
-                    supportLevel: null,
-                    notes: '테스트용 데이터입니다.',
-                    assignedTo: null
-                });
-            }
-            await addBatch.commit();
-            alert('기존 데이터를 모두 삭제하고 30개의 테스트 연락처를 생성했습니다.');
-            window.location.reload();
-        } catch (error) {
-            console.error('Failed to reset test data:', error);
-            alert('테스트 데이터 생성 중 오류가 발생했습니다.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
 
     const importBulkContacts = async (contactsArray) => {
-        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
+        if (user?.role !== 'ADMIN') return;
         setLoading(true);
         try {
             for (let i = 0; i < contactsArray.length; i += 400) {
@@ -232,7 +178,7 @@ export const CampaignProvider = ({ children }) => {
 
     const getVolunteerStats = (volunteerId) => {
         const assigned = contacts.filter(c => c.assignedTo === volunteerId);
-        const completedContacts = assigned.filter(c => c.status === 'CALLED' || c.supportLevel || (c.notes && c.notes !== '테스트용 데이터입니다.'));
+        const completedContacts = assigned.filter(c => c.status === 'CALLED' || c.supportLevel);
         return {
             total: assigned.length,
             completed: completedContacts.length,
@@ -243,7 +189,7 @@ export const CampaignProvider = ({ children }) => {
 
     const getCampaignStats = () => {
         const total = contacts.length;
-        const isCompleted = (c) => c.status === 'CALLED' || c.supportLevel || (c.notes && c.notes !== '테스트용 데이터입니다.');
+        const isCompleted = (c) => c.status === 'CALLED' || c.supportLevel;
         const completed = contacts.filter(isCompleted).length;
 
         // Tally results
@@ -254,16 +200,16 @@ export const CampaignProvider = ({ children }) => {
             '지지하지 않음': 0,
             '다른후보 지지': 0
         };
+        let surveyCount = 0;
         contacts.filter(isCompleted).forEach(c => {
-            const level = c.supportLevel || '관심없음';
-            if (results[level] !== undefined) {
+            const level = c.supportLevel;
+            if (level && results[level] !== undefined) {
                 results[level]++;
-            } else {
-                results['관심없음']++; // default bucket
+                surveyCount++;
             }
         });
 
-        return { total, completed, results };
+        return { total, completed, surveyCount, results };
     };
 
     const value = {
@@ -274,7 +220,6 @@ export const CampaignProvider = ({ children }) => {
         addContact,
         updateContact,
         deleteContact,
-        resetTestData,
         importBulkContacts,
         getVolunteerStats,
         getCampaignStats,
