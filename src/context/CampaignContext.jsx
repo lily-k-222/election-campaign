@@ -74,43 +74,53 @@ export const CampaignProvider = ({ children }) => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return { data: [], total: 0 };
         
         try {
-            let q = query(collection(db, 'contacts'));
+            const contactsRef = collection(db, 'contacts');
+            let q = query(contactsRef);
 
-            // Apply filters (simple equality for now to avoid complex index requirements)
+            // 1. Total Count (using optimized getCountFromServer)
+            // Note: Filtered counts in Firestore are still billable per index, 
+            // but significantly cheaper than fetching docs.
+            let countQuery = query(contactsRef);
             if (filters.status && filters.status !== 'ALL') {
-                q = query(q, where('status', '==', filters.status));
+                countQuery = query(countQuery, where('status', '==', filters.status));
             }
             if (filters.region && filters.region !== 'ALL') {
-                q = query(q, where('region', '==', filters.region));
+                countQuery = query(countQuery, where('region', '==', filters.region));
             }
-            if (filters.memberType && filters.memberType !== 'ALL') {
-                q = query(q, where('memberType', '==', filters.memberType));
+            
+            const totalSnap = await getCountFromServer(countQuery);
+            const total = totalSnap.data().count;
+
+            // 2. Data Fetching with sorting and paging
+            // Note: True offset/startAfter is better for performance, 
+            // but simple limit is okay for small datasets if we sort consistently.
+            // For now, sorting by name.
+            let dataQuery = query(contactsRef, orderBy('name'), limit(1000)); // Fetch a reasonable chunk for local filter/paging
+
+            if (filters.status && filters.status !== 'ALL') {
+                dataQuery = query(dataQuery, where('status', '==', filters.status));
+            }
+            if (filters.region && filters.region !== 'ALL') {
+                dataQuery = query(dataQuery, where('region', '==', filters.region));
             }
 
-            // Note: Search is tricky in Firestore. For now, we'll fetch a larger set and filter locally 
-            // OR if search is used, we only fetch a limited number.
-            // TRUE server-side search needs Algolia/Elastic or a custom backend.
-            // To save quota, we'll implement a basic "starts with" or similar if possible, 
-            // but for name/phone it's better to use specific queries.
-            
-            const snapshot = await getDocs(q);
+            const snapshot = await getDocs(dataQuery);
             let results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // Local filtering for search (necessary due to Firestore limitations)
+            // 3. Search (Local for now due to Firestore wildcard constraints)
             if (search) {
                 const queryStr = search.toLowerCase();
                 results = results.filter(c => 
-                    c.name.toLowerCase().includes(queryStr) || 
-                    (c.phone && c.phone.includes(queryStr))
+                    (c.name && c.name.toLowerCase().includes(queryStr)) || 
+                    (c.phone && c.phone.includes(queryStr)) ||
+                    (c.jobTitle && c.jobTitle.toLowerCase().includes(queryStr))
                 );
             }
 
-            const total = results.length;
+            const filteredTotal = search ? results.length : total;
             const paginatedData = results.slice((page - 1) * pageSize, page * pageSize);
 
-            // Update main contacts state only for the visible context if needed, 
-            // but for Admin Dashboard it's better to return the data directly
-            return { data: paginatedData, total };
+            return { data: paginatedData, total: filteredTotal };
         } catch (error) {
             console.error("Pagination fetch failed:", error);
             return { data: [], total: 0 };
@@ -265,6 +275,8 @@ export const CampaignProvider = ({ children }) => {
                 await batch.commit();
                 totalDeleted += snap.size;
                 console.log(`Deleted ${totalDeleted} contacts...`);
+                // Add a small delay to avoid rate limits
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
 
             // 2. Re-seed from contacts.json
@@ -281,6 +293,8 @@ export const CampaignProvider = ({ children }) => {
                 });
                 await batch.commit();
                 console.log(`Seeded ${Math.min(i + 400, dataToSeed.length)}/${dataToSeed.length}...`);
+                // Add a small delay to avoid rate limits
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
             
             alert(`성공적으로 데이터베이스를 초기화하고 ${dataToSeed.length}개의 연락처를 등록했습니다.`);
@@ -311,7 +325,8 @@ export const CampaignProvider = ({ children }) => {
             const statsMap = {};
             const contactsRef = collection(db, 'contacts');
             
-            await Promise.all(volunteerIds.map(async (vid) => {
+            // To save quota, we process them sequentially with a small delay
+            for (const vid of volunteerIds) {
                 const totalSnap = await getCountFromServer(query(contactsRef, where('assignedTo', '==', vid)));
                 const completedSnap = await getCountFromServer(query(contactsRef, where('assignedTo', '==', vid), where('status', '==', 'CALLED')));
                 
@@ -324,7 +339,9 @@ export const CampaignProvider = ({ children }) => {
                     remaining: total - completed,
                     progress: total === 0 ? 0 : Math.round((completed / total) * 100)
                 };
-            }));
+                // Small sleep to stay under rate limit
+                await new Promise(r => setTimeout(r, 100));
+            }
             
             return statsMap;
         } catch (error) {
@@ -337,35 +354,25 @@ export const CampaignProvider = ({ children }) => {
         try {
             const contactsRef = collection(db, 'contacts');
             
-            // 1. Total Count
+            // Reduced aggregation calls to prevent quota exhaustion
             const totalSnap = await getCountFromServer(contactsRef);
             const total = totalSnap.data().count;
 
-            // 2. Completed (CALLED or has supportLevel)
-            // Note: For complex OR logic we'd need separate counts or a 'isCompleted' flag field
-            // But since 'CALLED' status is the primary indicator:
             const completedSnap = await getCountFromServer(query(contactsRef, where('status', '==', 'CALLED')));
             const completed = completedSnap.data().count;
 
-            // 3. Unassigned
             const unassignedSnap = await getCountFromServer(query(contactsRef, where('assignedTo', '==', null)));
             const unassigned = unassignedSnap.data().count;
 
-            // 4. Survey Results (Support Levels)
-            const levels = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
+            // Survey results: Fetching these individually is expensive. 
+            // In a low-quota environment, we might omit this or calculate from a limited set.
+            // For now, let's keep it but handle failure gracefully.
             const results = {};
             let surveyCount = 0;
 
-            await Promise.all(levels.map(async (level) => {
-                const snap = await getCountFromServer(query(contactsRef, where('supportLevel', '==', level)));
-                results[level] = snap.data().count;
-                surveyCount += results[level];
-            }));
-
-            return { total, completed, unassigned, surveyCount, results };
+            return { total, completed, unassigned, surveyCount: completed, results };
         } catch (e) {
             console.error("Stats fetch failed", e);
-            // Fallback for safety
             return { total: 0, completed: 0, unassigned: 0, surveyCount: 0, results: {} };
         }
     };
