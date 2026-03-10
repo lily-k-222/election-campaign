@@ -174,20 +174,18 @@ export const AdminDashboard = () => {
                             </h2>
                             <div className="flex-1 flex flex-col justify-between py-1">
                                 {[
-                                    { label: '1. 적극 지지', value: stats.results.STRONG_SUPPORT || 0, color: '#1e3a8a' },
-                                    { label: '2. 다소 지지', value: stats.results.LEAN_SUPPORT || 0, color: '#3b82f6' },
-                                    { label: '3. 잘 모름', value: stats.results.UNDECIDED || 0, color: '#93c5fd' },
-                                    { label: '4. 무응답', value: stats.results.NO_RESPONSE || 0, color: '#e2e8f0' },
-                                    { label: '5. 차영수 지지', value: stats.results.SUPPORT_CHA || 0, color: '#475569' },
-                                    { label: '6. 강진원 지지', value: stats.results.SUPPORT_KANG || 0, color: '#64748b' },
+                                    { label: '1. 강하게 지지', value: stats.results['강하게 지지'] || 0, color: '#1e3a8a' },
+                                    { label: '2. 약하게 지지', value: stats.results['약하게 지지'] || 0, color: '#3b82f6' },
+                                    { label: '3. 관심없음',   value: stats.results['관심없음'] || 0, color: '#93c5fd' },
+                                    { label: '4. 지지하지 않음', value: stats.results['지지하지 않음'] || 0, color: '#94a3b8' },
+                                    { label: '5. 다른후보 지지', value: stats.results['다른후보 지지'] || 0, color: '#475569' }
                                 ].map((item, idx) => (
                                     <div key={idx} className="flex items-center gap-4 relative py-1">
                                         <span className="text-[14px] font-semibold text-gray-800 w-28 flex-shrink-0 tracking-tight">{item.label}</span>
                                         <div className="flex-1 h-4 bg-gray-100/50 rounded-full overflow-hidden relative border border-gray-200/40">
-                                            {/* Visually mimic the image's gradient bars showing empty values slightly populated for demo effect, or actual if values exist */}
                                             <div className="absolute top-0 left-0 h-full rounded-r-full" 
                                                 style={{
-                                                    width: item.value === 0 ? '92%' : `${Math.min(100, (item.value / Math.max(1, stats.completed)) * 100 + 40)}%`,
+                                                    width: item.value === 0 ? '0%' : `${Math.min(100, (item.value / Math.max(1, stats.completed)) * 100)}%`,
                                                     background: `linear-gradient(90deg, ${item.color} 0%, rgba(220,230,240,0.4) 100%)`,
                                                 }}>
                                             </div>
@@ -200,11 +198,11 @@ export const AdminDashboard = () => {
                             {/* Legend */}
                             <div className="flex justify-center items-center gap-3 mt-5 pt-4 border-t border-gray-100 flex-wrap">
                                 {[
-                                    { label: '적극 지지', color: '#1e3a8a' },
-                                    { label: '다소 지지', color: '#3b82f6' },
-                                    { label: '잘 모름', color: '#93c5fd' },
-                                    { label: '무응답', color: '#e2e8f0' },
-                                    { label: '기타 지지', color: '#64748b' },
+                                    { label: '강하게 지지', color: '#1e3a8a' },
+                                    { label: '약하게 지지', color: '#3b82f6' },
+                                    { label: '관심없음', color: '#93c5fd' },
+                                    { label: '지지하지 않음', color: '#94a3b8' },
+                                    { label: '다른후보 지지', color: '#475569' },
                                 ].map((item, i) => (
                                     <div key={i} className="flex items-center gap-1.5">
                                         <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }}></div>
@@ -445,9 +443,15 @@ export const AdminDashboard = () => {
                             <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 flex flex-col">
                                 <div className="flex justify-between items-center mb-6">
                                     <h2 className="text-[20px] font-extrabold text-slate-800 flex items-center gap-2 border-l-4 border-[#1e3a8a] pl-3 tracking-tight">연락처 및 명부 관리</h2>
-                                    <button onClick={handleAddClick} className="px-6 py-3 bg-[#1e3a8a] hover:bg-[#1e40af] text-white text-[14px] font-extrabold rounded-2xl transition-all shadow-md active:scale-95">
-                                        새 연락처 추가
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button onClick={resetTestData} className="px-4 py-2 border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 text-[13px] font-extrabold rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                            테스트 DB 초기화
+                                        </button>
+                                        <button onClick={handleAddClick} className="px-6 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] text-white text-[14px] font-extrabold rounded-xl transition-all shadow-md active:scale-95">
+                                            새 연락처 추가
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm">

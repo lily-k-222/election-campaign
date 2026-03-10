@@ -137,6 +137,54 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
+    // Admin action: Reset DB with 30 Test Contacts
+    const resetTestData = async () => {
+        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
+        
+        const confirmReset = window.confirm("경고: 현재 DB의 '모든 실제 연락처'가 영구 삭제되고 30개의 임시 테스트 데이터로 교체됩니다. 계속하시겠습니까?");
+        if (!confirmReset) return;
+
+        try {
+            setLoading(true);
+            const contactsRef = collection(db, 'contacts');
+            const snap = await getDocs(contactsRef);
+            
+            // Delete existing
+            const deleteBatch = writeBatch(db);
+            snap.docs.forEach(docSnap => {
+                deleteBatch.delete(docSnap.ref);
+            });
+            await deleteBatch.commit();
+
+            // Add 30 dummy
+            const addBatch = writeBatch(db);
+            for (let i = 1; i <= 30; i++) {
+                const newId = `test_c_${Date.now()}_${i}`;
+                const docRef = doc(db, 'contacts', newId);
+                addBatch.set(docRef, {
+                    id: newId,
+                    name: `테스트당원 ${i}`,
+                    age: `${20 + (i % 5)*10}대`,
+                    memberType: i % 2 === 0 ? '권리당원' : '일반당원',
+                    region: `테스트동 ${i}구`,
+                    phone: `010-${String(Math.floor(Math.random() * 9000) + 1000)}-${String(Math.floor(Math.random() * 9000) + 1000)}`,
+                    status: 'UNASSIGNED',
+                    surveyResult: null,
+                    notes: '테스트용 데이터입니다.',
+                    assignedTo: null
+                });
+            }
+            await addBatch.commit();
+            alert('기존 데이터를 모두 삭제하고 30개의 테스트 연락처를 생성했습니다.');
+            window.location.reload();
+        } catch (error) {
+            console.error('Failed to reset test data:', error);
+            alert('테스트 데이터 생성 중 오류가 발생했습니다.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const getVolunteerStats = (volunteerId) => {
         const assigned = contacts.filter(c => c.assignedTo === volunteerId);
         const completed = assigned.filter(c => c.status === 'CALLED');
@@ -150,20 +198,22 @@ export const CampaignProvider = ({ children }) => {
 
     const getCampaignStats = () => {
         const total = contacts.length;
-        const completed = contacts.filter(c => c.status === 'CALLED').length;
+        const completed = contacts.filter(c => c.status === 'CALLED' || c.supportLevel || c.notes).length;
 
         // Tally results
         const results = {
-            STRONG_SUPPORT: 0,
-            LEAN_SUPPORT: 0,
-            UNDECIDED: 0,
-            NO_RESPONSE: 0,
-            SUPPORT_CHA: 0,
-            SUPPORT_KANG: 0
+            '강하게 지지': 0,
+            '약하게 지지': 0,
+            '관심없음': 0,
+            '지지하지 않음': 0,
+            '다른후보 지지': 0
         };
-        contacts.filter(c => c.status === 'CALLED').forEach(c => {
-            if (results[c.surveyResult] !== undefined) {
-                results[c.surveyResult]++;
+        contacts.filter(c => c.status === 'CALLED' || c.supportLevel || c.notes).forEach(c => {
+            const level = c.supportLevel || '관심없음';
+            if (results[level] !== undefined) {
+                results[level]++;
+            } else {
+                results['관심없음']++; // default bucket
             }
         });
 
@@ -177,6 +227,7 @@ export const CampaignProvider = ({ children }) => {
         addContact,
         updateContact,
         deleteContact,
+        resetTestData,
         getVolunteerStats,
         getCampaignStats,
         loading
