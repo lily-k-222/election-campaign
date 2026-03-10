@@ -31,78 +31,101 @@ export const AuthProvider = ({ children }) => {
 
     // Listen to Auth State
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser) {
-                // User is authenticated in Firebase
-                const userRef = doc(db, 'users', firebaseUser.uid);
-                const userDoc = await getDoc(userRef);
-                
-                if (userDoc.exists()) {
-                    let userData = userDoc.data();
-                    
-                    // 관리자 긴급 복구: 지정된 이메일은 무조건 관리자로 승격
-                    if (userData.email === 'wangjaelee@gmail.com' && userData.role !== 'ADMIN') {
-                        userData.role = 'ADMIN';
-                        await updateDoc(userRef, { role: 'ADMIN' });
-                    }
-                    if (userData.email === 'soomin8454@gmail.com' && userData.role !== 'DEVELOPER') {
-                        userData.role = 'DEVELOPER';
-                        await updateDoc(userRef, { role: 'DEVELOPER' });
-                    }
-                    
-                    setUser({ id: firebaseUser.uid, ...userData });
-                } else {
-                    // Check if they are matched to a mock user by email (transitional phase)
-                    const usersRef = collection(db, 'users');
-                    const usersSnap = await getDocs(usersRef);
-                    let existingUser = null;
-                    usersSnap.forEach(doc => {
-                        if (doc.data().email === firebaseUser.email) {
-                            existingUser = { id: doc.id, ...doc.data() };
-                        }
-                    });
+        // Safety timeout to prevent infinite hang if Firebase listener doesn't fire
+        const timer = setTimeout(() => {
+            setLoading(false);
+        }, 10000); 
 
-                    if (existingUser) {
-                        // Migrate them to their actual UID by cloning the document and deleting old one
-                        // For simplicity in this demo, just map UID to data
-                        let assignedRole = existingUser.role;
-                        if (firebaseUser.email === 'wangjaelee@gmail.com') {
-                            assignedRole = 'ADMIN';
-                        } else if (firebaseUser.email === 'soomin8454@gmail.com') {
-                            assignedRole = 'DEVELOPER';
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            try {
+                if (firebaseUser) {
+                    // User is authenticated in Firebase
+                    const userRef = doc(db, 'users', firebaseUser.uid);
+                    const userDoc = await getDoc(userRef);
+                    
+                    if (userDoc.exists()) {
+                        let userData = userDoc.data();
+                        
+                        // 관리자 긴급 복구: 지정된 이메일은 무조건 승격
+                        try {
+                            if (userData.email === 'wangjaelee@gmail.com' && userData.role !== 'ADMIN') {
+                                userData.role = 'ADMIN';
+                                await updateDoc(userRef, { role: 'ADMIN' });
+                            }
+                            if (userData.email === 'soomin8454@gmail.com' && userData.role !== 'DEVELOPER') {
+                                userData.role = 'DEVELOPER';
+                                await updateDoc(userRef, { role: 'DEVELOPER' });
+                            }
+                        } catch (err) {
+                            console.warn("Emergency role update failed (likely permission issue), proceeding with local state.", err);
+                            // Even if Firestore update fails, we set the role locally for current session
+                            if (userData.email === 'soomin8454@gmail.com') userData.role = 'DEVELOPER';
+                            if (userData.email === 'wangjaelee@gmail.com') userData.role = 'ADMIN';
                         }
                         
-                        await setDoc(doc(db, 'users', firebaseUser.uid), {
-                            email: firebaseUser.email,
-                            name: firebaseUser.displayName || '이름 없음',
-                            role: assignedRole
-                        });
-                        setUser({ id: firebaseUser.uid, email: firebaseUser.email, name: firebaseUser.displayName, role: assignedRole });
+                        setUser({ id: firebaseUser.uid, ...userData });
                     } else {
-                        // Brand new user
-                        let assignedRole = 'UNAUTHORIZED'; // Require admin approval by default
-                        if (firebaseUser.email === 'wangjaelee@gmail.com') {
-                            assignedRole = 'ADMIN';
-                        } else if (firebaseUser.email === 'soomin8454@gmail.com') {
-                            assignedRole = 'DEVELOPER';
-                        }
+                        // Check if they are matched to a mock user by email (transitional phase)
+                        try {
+                            const usersRef = collection(db, 'users');
+                            const usersSnap = await getDocs(usersRef);
+                            let existingUser = null;
+                            usersSnap.forEach(doc => {
+                                if (doc.data().email === firebaseUser.email) {
+                                    existingUser = { id: doc.id, ...doc.data() };
+                                }
+                            });
 
-                        const newUser = {
-                            email: firebaseUser.email,
-                            name: firebaseUser.displayName || '이름 없음',
-                            role: assignedRole
-                        };
-                        await setDoc(userRef, newUser);
-                        setUser({ id: firebaseUser.uid, ...newUser });
+                            if (existingUser) {
+                                let assignedRole = existingUser.role;
+                                if (firebaseUser.email === 'wangjaelee@gmail.com') {
+                                    assignedRole = 'ADMIN';
+                                } else if (firebaseUser.email === 'soomin8454@gmail.com') {
+                                    assignedRole = 'DEVELOPER';
+                                }
+                                
+                                await setDoc(doc(db, 'users', firebaseUser.uid), {
+                                    email: firebaseUser.email,
+                                    name: firebaseUser.displayName || '이름 없음',
+                                    role: assignedRole
+                                });
+                                setUser({ id: firebaseUser.uid, email: firebaseUser.email, name: firebaseUser.displayName, role: assignedRole });
+                            } else {
+                                // Brand new user
+                                let assignedRole = 'UNAUTHORIZED';
+                                if (firebaseUser.email === 'wangjaelee@gmail.com') {
+                                    assignedRole = 'ADMIN';
+                                } else if (firebaseUser.email === 'soomin8454@gmail.com') {
+                                    assignedRole = 'DEVELOPER';
+                                }
+
+                                const newUser = {
+                                    email: firebaseUser.email,
+                                    name: firebaseUser.displayName || '이름 없음',
+                                    role: assignedRole
+                                };
+                                await setDoc(userRef, newUser);
+                                setUser({ id: firebaseUser.uid, ...newUser });
+                            }
+                        } catch (e) {
+                            console.error("User document creation failed", e);
+                        }
                     }
+                } else {
+                    setUser(null);
                 }
-            } else {
-                setUser(null);
+            } catch (error) {
+                console.error("Auth state listener error:", error);
+            } finally {
+                setLoading(false);
+                clearTimeout(timer);
             }
-            setLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            clearTimeout(timer);
+        };
     }, []);
 
     // Listen to all users if Admin or Developer
