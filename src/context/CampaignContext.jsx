@@ -86,6 +86,22 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
+    // Admin action: Reassign specific contacts to a volunteer
+    const reassignContacts = async (contactIds, volunteerId) => {
+        if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') return;
+
+        try {
+            const batch = writeBatch(db);
+            contactIds.forEach(id => {
+                const contactRef = doc(db, 'contacts', id);
+                batch.update(contactRef, { assignedTo: volunteerId });
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error('Failed to reassign contacts:', error);
+        }
+    };
+
     // Volunteer action: Record call result
     const recordCall = async (contactId, result, notes = '') => {
         try {
@@ -231,6 +247,7 @@ export const CampaignProvider = ({ children }) => {
     const value = {
         contacts,
         assignQuota,
+        reassignContacts,
         recordCall,
         addContact,
         updateContact,

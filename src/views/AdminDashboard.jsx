@@ -17,6 +17,7 @@ export const AdminDashboard = () => {
         addContact,
         updateContact,
         deleteContact,
+        reassignContacts,
         resetTestData
     } = useCampaign();
 
@@ -28,6 +29,10 @@ export const AdminDashboard = () => {
     
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [viewingContact, setViewingContact] = useState(null);
+    
+    // Bulk Selection State
+    const [selectedContacts, setSelectedContacts] = useState([]);
+    const [bulkAssignVolunteer, setBulkAssignVolunteer] = useState('');
     
     // Pagination state for completed contacts list
     const [completedPage, setCompletedPage] = useState(1);
@@ -90,6 +95,33 @@ export const AdminDashboard = () => {
         } else {
             addContact(formData);
         }
+    };
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedContacts(contacts.map(c => c.id));
+        } else {
+            setSelectedContacts([]);
+        }
+    };
+
+    const handleSelectContact = (contactId) => {
+        setSelectedContacts(prev => 
+            prev.includes(contactId) ? prev.filter(id => id !== contactId) : [...prev, contactId]
+        );
+    };
+
+    const handleBulkReassign = () => {
+        if (!bulkAssignVolunteer) {
+            showDialog('alert', '안내', '할당할 자원봉사자를 선택해주세요.');
+            return;
+        }
+        showDialog('confirm', '일괄 할당', `선택한 ${selectedContacts.length}명의 연락처를 지정한 자원봉사자에게 할당하시겠습니까?`, async () => {
+            await reassignContacts(selectedContacts, bulkAssignVolunteer);
+            setSelectedContacts([]);
+            setBulkAssignVolunteer('');
+            showDialog('alert', '할당 완료', '연락처가 성공적으로 일괄 할당되었습니다.');
+        });
     };
 
     return (
@@ -546,12 +578,49 @@ export const AdminDashboard = () => {
                                         </button>
                                     </div>
                                 </div>
+                                
+                                {/* Bulk Selection Actions */}
+                                {selectedContacts.length > 0 && (
+                                    <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="bg-[#1e3a8a] text-white w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold">{selectedContacts.length}</span>
+                                            <span className="text-[14px] font-bold text-blue-900">명 선택됨</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <select
+                                                className="pl-3 pr-8 py-2 bg-white border border-blue-200 rounded-lg outline-none text-[13px] font-bold text-gray-700 shadow-sm"
+                                                value={bulkAssignVolunteer}
+                                                onChange={(e) => setBulkAssignVolunteer(e.target.value)}
+                                            >
+                                                <option value="" disabled hidden>담당할 자원봉사자 선택</option>
+                                                <option value="UNASSIGNED">-- 담당자 지정 해제 --</option>
+                                                {volunteers.map(v => (
+                                                    <option key={v.id} value={v.id}>{v.name}</option>
+                                                ))}
+                                            </select>
+                                            <button 
+                                                onClick={handleBulkReassign}
+                                                className="px-4 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] text-white text-[13px] font-bold rounded-lg transition-all shadow-sm"
+                                            >
+                                                일괄 할당/변경
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm">
                                     <table className="w-full text-left text-sm whitespace-nowrap">
                                         <thead className="bg-[#f8fafc] text-gray-600 font-bold border-b border-gray-100">
                                             <tr>
-                                                <th className="p-4 pl-5">이름</th>
+                                                <th className="p-4 pl-4 w-12">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="w-4 h-4 rounded border-gray-300 text-[#1e3a8a] focus:ring-[#1e3a8a]"
+                                                        checked={contacts.length > 0 && selectedContacts.length === contacts.length}
+                                                        onChange={handleSelectAll}
+                                                    />
+                                                </th>
+                                                <th className="p-4">이름</th>
                                                 <th className="p-4">나이</th>
                                                 <th className="p-4">당원구분</th>
                                                 <th className="p-4">지역</th>
@@ -564,13 +633,21 @@ export const AdminDashboard = () => {
                                         </thead>
                                         <tbody>
                                             {contacts.length === 0 ? (
-                                                <tr><td colSpan="9" className="p-6 text-center text-gray-500 font-medium bg-gray-50/50">등록된 연락처가 없습니다.</td></tr>
+                                                <tr><td colSpan="10" className="p-6 text-center text-gray-500 font-medium bg-gray-50/50">등록된 연락처가 없습니다.</td></tr>
                                             ) : (
                                                 contacts.map(contact => {
                                                     const assignedVolunteer = volunteers.find(v => v.id === contact.assignedTo);
                                                     return (
-                                                        <tr key={contact.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors">
-                                                            <td className="p-4 pl-5 font-bold text-gray-800">{contact.name}</td>
+                                                        <tr key={contact.id} className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors ${selectedContacts.includes(contact.id) ? 'bg-blue-50/30' : ''}`}>
+                                                            <td className="p-4 pl-4">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    className="w-4 h-4 rounded border-gray-300 text-[#1e3a8a] focus:ring-[#1e3a8a]"
+                                                                    checked={selectedContacts.includes(contact.id)}
+                                                                    onChange={() => handleSelectContact(contact.id)}
+                                                                />
+                                                            </td>
+                                                            <td className="p-4 font-bold text-gray-800">{contact.name}</td>
                                                             <td className="p-4 text-gray-500">{contact.age || '-'}</td>
                                                             <td className="p-4 text-gray-500">{contact.memberType || '-'}</td>
                                                             <td className="p-4 text-gray-500">{contact.region || '-'}</td>
