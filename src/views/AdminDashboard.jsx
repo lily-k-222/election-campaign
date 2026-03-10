@@ -9,6 +9,7 @@ import { DialogModal } from '../components/DialogModal';
 import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList } from 'lucide-react';
 
 export const AdminDashboard = () => {
+    const {
         contacts,
         getCampaignStats,
         getVolunteerStats,
