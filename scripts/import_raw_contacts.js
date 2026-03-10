@@ -166,7 +166,7 @@ async function processFiles() {
                     title: standardized.title || '',
                     memberType: memberType || '일반구민',
                     latestYear: year,
-                    notes: standardized.note ? `[${file}-${row._sheetName}]: ${standardized.note}` : '',
+                    notes: standardized.note ? standardized.note : '',
                     sourceFiles: [`${file}(${row._sheetName})`]
                 });
             } else {
@@ -204,7 +204,7 @@ async function processFiles() {
 
                 // Append any extra notes
                 if (standardized.note) {
-                    existing.notes = appendNote(existing.notes, `[${file}-${row._sheetName}]: ${standardized.note}`);
+                    existing.notes = appendNote(existing.notes, standardized.note);
                 }
 
                 const sourceKey = `${file}(${row._sheetName})`;
@@ -221,11 +221,9 @@ async function processFiles() {
     // Push defaults and generate Firestore IDs
     const finalContacts = mergedContacts.map((c, i) => {
         const docId = `contact_raw_${Date.now()}_${i}`;
-        const sourceMeta = c.sourceFiles.join(', ');
-        const appendedNote = c.notes ? `${c.notes}\n(출처파일: ${sourceMeta})` : `(출처파일: ${sourceMeta})`;
         
         // Final note combination involving title if they have one but we want it visible
-        const finalNote = c.title ? `[최신직함: ${c.title}]\n${appendedNote}` : appendedNote;
+        const finalNote = c.title ? `[최신직함: ${c.title}]\n${c.notes}` : c.notes;
 
         return {
             id: docId,

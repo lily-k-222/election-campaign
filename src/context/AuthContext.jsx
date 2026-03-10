@@ -41,12 +41,13 @@ export const AuthProvider = ({ children }) => {
                     let userData = userDoc.data();
                     
                     // 관리자 긴급 복구: 지정된 이메일은 무조건 관리자로 승격
-                    if (
-                        (userData.email === 'soomin8454@gmail.com' || userData.email === 'wangjaelee@gmail.com') && 
-                        userData.role !== 'ADMIN'
-                    ) {
+                    if (userData.email === 'wangjaelee@gmail.com' && userData.role !== 'ADMIN') {
                         userData.role = 'ADMIN';
                         await updateDoc(userRef, { role: 'ADMIN' });
+                    }
+                    if (userData.email === 'soomin8454@gmail.com' && userData.role !== 'DEVELOPER') {
+                        userData.role = 'DEVELOPER';
+                        await updateDoc(userRef, { role: 'DEVELOPER' });
                     }
                     
                     setUser({ id: firebaseUser.uid, ...userData });
@@ -65,8 +66,10 @@ export const AuthProvider = ({ children }) => {
                         // Migrate them to their actual UID by cloning the document and deleting old one
                         // For simplicity in this demo, just map UID to data
                         let assignedRole = existingUser.role;
-                        if (firebaseUser.email === 'soomin8454@gmail.com' || firebaseUser.email === 'wangjaelee@gmail.com') {
+                        if (firebaseUser.email === 'wangjaelee@gmail.com') {
                             assignedRole = 'ADMIN';
+                        } else if (firebaseUser.email === 'soomin8454@gmail.com') {
+                            assignedRole = 'DEVELOPER';
                         }
                         
                         await setDoc(doc(db, 'users', firebaseUser.uid), {
@@ -78,8 +81,10 @@ export const AuthProvider = ({ children }) => {
                     } else {
                         // Brand new user
                         let assignedRole = 'UNAUTHORIZED'; // Require admin approval by default
-                        if (firebaseUser.email === 'soomin8454@gmail.com' || firebaseUser.email === 'wangjaelee@gmail.com') {
+                        if (firebaseUser.email === 'wangjaelee@gmail.com') {
                             assignedRole = 'ADMIN';
+                        } else if (firebaseUser.email === 'soomin8454@gmail.com') {
+                            assignedRole = 'DEVELOPER';
                         }
 
                         const newUser = {
@@ -100,9 +105,9 @@ export const AuthProvider = ({ children }) => {
         return () => unsubscribe();
     }, []);
 
-    // Listen to all users if Admin
+    // Listen to all users if Admin or Developer
     useEffect(() => {
-        if (!user || user.role !== 'ADMIN') return;
+        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return;
         
         const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
             const usersList = [];
@@ -163,7 +168,7 @@ export const AuthProvider = ({ children }) => {
 
     // Admin function: Update user role
     const updateUserRole = async (userId, newRole) => {
-        if (user.role !== 'ADMIN') return;
+        if (user.role !== 'ADMIN' && user.role !== 'DEVELOPER') return;
         
         try {
             await updateDoc(doc(db, 'users', userId), { role: newRole });

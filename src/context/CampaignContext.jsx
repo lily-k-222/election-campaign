@@ -46,7 +46,7 @@ export const CampaignProvider = ({ children }) => {
         }
 
         let q;
-        if (user.role === 'ADMIN') {
+        if (user.role === 'ADMIN' || user.role === 'DEVELOPER') {
             // Fetch all contacts (warning: for large DBs, use server-side pagination)
             q = query(collection(db, 'contacts'));
         } else {
@@ -68,7 +68,7 @@ export const CampaignProvider = ({ children }) => {
 
     // Admin action: Assign a batch of unassigned contacts to a volunteer
     const assignQuota = async (volunteerId, count) => {
-        if (user?.role !== 'ADMIN') return;
+        if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return;
 
         try {
             const unassigned = contacts.filter(c => !c.assignedTo || c.assignedTo === 'UNASSIGNED').slice(0, count);
@@ -87,7 +87,7 @@ export const CampaignProvider = ({ children }) => {
 
     // Admin action: Reassign specific contacts to a volunteer
     const reassignContacts = async (contactIds, volunteerId) => {
-        if (user?.role !== 'ADMIN') return;
+        if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return;
 
         try {
             const batch = writeBatch(db);
@@ -118,7 +118,7 @@ export const CampaignProvider = ({ children }) => {
 
     // Admin action: Add a new contact
     const addContact = async (contactData) => {
-        if (user?.role !== 'ADMIN') return;
+        if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return;
 
         try {
             const newId = `c_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -145,7 +145,7 @@ export const CampaignProvider = ({ children }) => {
 
     // Admin action: Delete a contact
     const deleteContact = async (contactId) => {
-        if (user?.role !== 'ADMIN') return;
+        if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return;
         try {
             await deleteDoc(doc(db, 'contacts', contactId));
         } catch (error) {
@@ -155,7 +155,7 @@ export const CampaignProvider = ({ children }) => {
 
 
     const importBulkContacts = async (contactsArray) => {
-        if (user?.role !== 'ADMIN') return;
+        if (user?.role !== 'DEVELOPER') return;
         setLoading(true);
         try {
             for (let i = 0; i < contactsArray.length; i += 400) {
