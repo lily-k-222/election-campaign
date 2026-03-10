@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { collection, onSnapshot, doc, updateDoc, writeBatch, setDoc, deleteDoc, getDocs, query, where, limit, getCountFromServer } from 'firebase/firestore';
-import contactsData from '../data/contacts.json';
+import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
 
 const CampaignContext = createContext();
@@ -11,62 +9,62 @@ export const CampaignProvider = ({ children }) => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
 
-    // Initial setup: Seed mock data to Firestore if it's empty
-    useEffect(() => {
-        const seedData = async () => {
-            const contactsRef = collection(db, 'contacts');
-            const q = query(contactsRef, limit(1));
-            const snap = await getDocs(q);
-            if (snap.empty) {
-                const chunkSize = 450;
-                for (let i = 0; i < contactsData.length; i += chunkSize) {
-                    const chunk = contactsData.slice(i, i + chunkSize);
-                    const batch = writeBatch(db);
-                    chunk.forEach(c => {
-                        const docRef = doc(db, 'contacts', c.id);
-                        batch.set(docRef, {
-                            ...c,
-                            status: c.status || 'UNASSIGNED',
-                            surveyResult: c.surveyResult || null,
-                            notes: c.notes || '',
-                            assignedTo: c.assignedTo || null
-                        });
-                    });
-                    await batch.commit();
-                }
-            }
-        };
-        seedData();
-    }, []);
+    // Initial setup: Supabase doesn't need client-side seeding usually, 
+    // but we can keep it for the first-time setup if needed.
+    // However, we'll use our migration script instead.
 
-    // Real-time listener only for Volunteers (limited scope)
+    // Real-time listener for Volunteers
     useEffect(() => {
         if (!user) {
             setContacts([]);
             return;
         }
 
-        // Admins don't get a global real-time listener anymore to save quota
+        // Admins don't get a global real-time listener anymore to save performance
         if (user.role === 'ADMIN' || user.role === 'DEVELOPER') {
             setLoading(false); 
             return;
         }
 
-        // Volunteers only fetch their assigned contacts (Real-time is okay here as scope is small)
-        const q = query(collection(db, 'contacts'), where('assignedTo', '==', user.id));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const contactsList = [];
-            snapshot.forEach((doc) => {
-                contactsList.push({ id: doc.id, ...doc.data() });
-            });
-            setContacts(contactsList);
+        // Volunteers only fetch their assigned contacts
+        const fetchMyContacts = async () => {
+            const { data, error } = await supabase
+                .from('contacts')
+                .select('*')
+                .eq('assigned_to', user.id);
+            
+            if (error) {
+                console.error("Error fetching volunteer contacts:", error);
+            } else {
+                setContacts(data || []);
+            }
             setLoading(false);
-        }, (error) => {
-            console.error("Volunteer snapshot error:", error);
-            setLoading(false);
-        });
+        };
 
-        return () => unsubscribe();
+        fetchMyContacts();
+
+        // Subscribe to changes
+        const channel = supabase
+            .channel('public:contacts')
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'contacts',
+                filter: `assigned_to=eq.${user.id}`
+            }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    setContacts(prev => [...prev, payload.new]);
+                } else if (payload.eventType === 'UPDATE') {
+                    setContacts(prev => prev.map(c => c.id === payload.new.id ? payload.new : c));
+                } else if (payload.eventType === 'DELETE') {
+                    setContacts(prev => prev.filter(c => c.id === payload.old.id));
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [user]);
 
     // Admin Paginated Fetching
@@ -74,53 +72,49 @@ export const CampaignProvider = ({ children }) => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return { data: [], total: 0 };
         
         try {
-            const contactsRef = collection(db, 'contacts');
-            let q = query(contactsRef);
+            let query = supabase
+                .from('contacts')
+                .select('*', { count: 'exact' });
 
-            // 1. Total Count (using optimized getCountFromServer)
-            // Note: Filtered counts in Firestore are still billable per index, 
-            // but significantly cheaper than fetching docs.
-            let countQuery = query(contactsRef);
+            // Filters
             if (filters.status && filters.status !== 'ALL') {
-                countQuery = query(countQuery, where('status', '==', filters.status));
+                query = query.eq('status', filters.status);
             }
             if (filters.region && filters.region !== 'ALL') {
-                countQuery = query(countQuery, where('region', '==', filters.region));
-            }
-            
-            const totalSnap = await getCountFromServer(countQuery);
-            const total = totalSnap.data().count;
-
-            // 2. Data Fetching with sorting and paging
-            // Note: True offset/startAfter is better for performance, 
-            // but simple limit is okay for small datasets if we sort consistently.
-            // For now, sorting by name.
-            let dataQuery = query(contactsRef, orderBy('name'), limit(1000)); // Fetch a reasonable chunk for local filter/paging
-
-            if (filters.status && filters.status !== 'ALL') {
-                dataQuery = query(dataQuery, where('status', '==', filters.status));
-            }
-            if (filters.region && filters.region !== 'ALL') {
-                dataQuery = query(dataQuery, where('region', '==', filters.region));
+                query = query.eq('region', filters.region);
             }
 
-            const snapshot = await getDocs(dataQuery);
-            let results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-            // 3. Search (Local for now due to Firestore wildcard constraints)
+            // Search
             if (search) {
-                const queryStr = search.toLowerCase();
-                results = results.filter(c => 
-                    (c.name && c.name.toLowerCase().includes(queryStr)) || 
-                    (c.phone && c.phone.includes(queryStr)) ||
-                    (c.jobTitle && c.jobTitle.toLowerCase().includes(queryStr))
-                );
+                const searchStr = `%${search}%`;
+                query = query.or(`name.ilike.${searchStr},phone.ilike.${searchStr},job_title.ilike.${searchStr}`);
             }
 
-            const filteredTotal = search ? results.length : total;
-            const paginatedData = results.slice((page - 1) * pageSize, page * pageSize);
+            // Pagination
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize - 1;
+            
+            const { data, count, error } = await query
+                .order('name', { ascending: true })
+                .range(from, to);
 
-            return { data: paginatedData, total: filteredTotal };
+            if (error) throw error;
+
+            // Map field names to match frontend expectation (camelCase vs snake_case)
+            const mappedData = data.map(c => ({
+                id: c.id,
+                name: c.name,
+                phone: c.phone,
+                region: c.region,
+                jobTitle: c.job_title,
+                memberType: c.member_type,
+                status: c.status,
+                surveyResult: c.survey_result,
+                notes: c.notes,
+                assignedTo: c.assigned_to
+            }));
+
+            return { data: mappedData, total: count || 0 };
         } catch (error) {
             console.error("Pagination fetch failed:", error);
             return { data: [], total: 0 };
@@ -133,23 +127,30 @@ export const CampaignProvider = ({ children }) => {
 
         setLoading(true);
         try {
-            // Fetch only unassigned contacts from Firestore to save quota
-            const q = query(collection(db, 'contacts'), where('assignedTo', '==', null), limit(count));
-            const snapshot = await getDocs(q);
+            // 1. Get IDs of unassigned contacts
+            const { data: unassigned, error: fetchError } = await supabase
+                .from('contacts')
+                .select('id')
+                .is('assigned_to', null)
+                .limit(count);
             
-            if (snapshot.empty) {
+            if (fetchError) throw fetchError;
+            if (!unassigned || unassigned.length === 0) {
                 alert('할당할 수 있는 미배정 연락처가 없습니다.');
-                setLoading(false);
                 return;
             }
 
-            const batch = writeBatch(db);
-            snapshot.docs.forEach(docSnap => {
-                batch.update(doc(db, 'contacts', docSnap.id), { assignedTo: volunteerId });
-            });
+            const ids = unassigned.map(c => c.id);
+
+            // 2. Update them
+            const { error: updateError } = await supabase
+                .from('contacts')
+                .update({ assigned_to: volunteerId })
+                .in('id', ids);
+
+            if (updateError) throw updateError;
             
-            await batch.commit();
-            alert(`${snapshot.size}명의 연락처를 할당했습니다.`);
+            alert(`${ids.length}명의 연락처를 할당했습니다.`);
         } catch (error) {
             console.error('Failed to assign quota:', error);
             alert('할당 중 오류가 발생했습니다.');
@@ -161,15 +162,15 @@ export const CampaignProvider = ({ children }) => {
     // Admin action: Reassign specific contacts to a volunteer
     const reassignContacts = async (contactIds, volunteerId) => {
         if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return;
+        const actualVolunteerId = (volunteerId === 'UNASSIGNED' || !volunteerId) ? null : volunteerId;
 
         try {
-            const batch = writeBatch(db);
-            const actualVolunteerId = (volunteerId === 'UNASSIGNED' || !volunteerId) ? null : volunteerId;
-            contactIds.forEach(id => {
-                const contactRef = doc(db, 'contacts', id);
-                batch.update(contactRef, { assignedTo: actualVolunteerId });
-            });
-            await batch.commit();
+            const { error } = await supabase
+                .from('contacts')
+                .update({ assigned_to: actualVolunteerId })
+                .in('id', contactIds);
+            
+            if (error) throw error;
         } catch (error) {
             console.error('Failed to reassign contacts:', error);
         }
@@ -178,12 +179,16 @@ export const CampaignProvider = ({ children }) => {
     // Volunteer action: Record call result
     const recordCall = async (contactId, result, notes = '') => {
         try {
-            const contactRef = doc(db, 'contacts', contactId);
-            await updateDoc(contactRef, {
-                status: 'CALLED',
-                surveyResult: result,
-                notes: notes
-            });
+            const { error } = await supabase
+                .from('contacts')
+                .update({
+                    status: 'CALLED',
+                    survey_result: result,
+                    notes: notes
+                })
+                .eq('id', contactId);
+            
+            if (error) throw error;
         } catch (error) {
             console.error('Failed to sync call record:', error);
         }
@@ -195,13 +200,21 @@ export const CampaignProvider = ({ children }) => {
 
         try {
             const newId = `c_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-            await setDoc(doc(db, 'contacts', newId), {
-                ...contactData,
-                status: 'UNASSIGNED',
-                surveyResult: null,
-                notes: contactData.notes || '',
-                assignedTo: null
-            });
+            const { error } = await supabase
+                .from('contacts')
+                .insert([{
+                    id: newId,
+                    name: contactData.name,
+                    phone: contactData.phone,
+                    region: contactData.region,
+                    job_title: contactData.jobTitle,
+                    member_type: contactData.memberType,
+                    status: 'UNASSIGNED',
+                    notes: contactData.notes || '',
+                    assigned_to: null
+                }]);
+            
+            if (error) throw error;
         } catch (error) {
             console.error('Failed to add contact:', error);
         }
@@ -210,7 +223,22 @@ export const CampaignProvider = ({ children }) => {
     // Admin & Volunteer action: Update an existing contact
     const updateContact = async (contactId, updatedData) => {
         try {
-            await updateDoc(doc(db, 'contacts', contactId), updatedData);
+            // Map camelCase to snake_case if applicable
+            const payload = {};
+            if (updatedData.name !== undefined) payload.name = updatedData.name;
+            if (updatedData.phone !== undefined) payload.phone = updatedData.phone;
+            if (updatedData.status !== undefined) payload.status = updatedData.status;
+            if (updatedData.notes !== undefined) payload.notes = updatedData.notes;
+            if (updatedData.assignedTo !== undefined) payload.assigned_to = updatedData.assignedTo;
+            if (updatedData.jobTitle !== undefined) payload.job_title = updatedData.jobTitle;
+            if (updatedData.surveyResult !== undefined) payload.survey_result = updatedData.surveyResult;
+
+            const { error } = await supabase
+                .from('contacts')
+                .update(payload)
+                .eq('id', contactId);
+            
+            if (error) throw error;
         } catch (error) {
             console.error('Failed to update contact:', error);
         }
@@ -220,7 +248,12 @@ export const CampaignProvider = ({ children }) => {
     const deleteContact = async (contactId) => {
         if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return;
         try {
-            await deleteDoc(doc(db, 'contacts', contactId));
+            const { error } = await supabase
+                .from('contacts')
+                .delete()
+                .eq('id', contactId);
+            
+            if (error) throw error;
         } catch (error) {
             console.error('Failed to delete contact:', error);
         }
@@ -230,100 +263,35 @@ export const CampaignProvider = ({ children }) => {
     const fetchVolunteerContacts = async (volunteerId) => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return [];
         try {
-            const q = query(collection(db, 'contacts'), where('assignedTo', '==', volunteerId));
-            const snap = await getDocs(q);
-            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const { data, error } = await supabase
+                .from('contacts')
+                .select('*')
+                .eq('assigned_to', volunteerId);
+            
+            if (error) throw error;
+            return data.map(c => ({
+                id: c.id,
+                name: c.name,
+                phone: c.phone,
+                region: c.region,
+                jobTitle: c.job_title,
+                status: c.status,
+                surveyResult: c.survey_result,
+                notes: c.notes,
+                assignedTo: c.assigned_to
+            }));
         } catch (error) {
             console.error('Failed to fetch volunteer contacts:', error);
             return [];
         }
     };
 
-
-    const importBulkContacts = async (contactsArray) => {
-        if (user?.role !== 'DEVELOPER') return;
-        setLoading(true);
-        try {
-            for (let i = 0; i < contactsArray.length; i += 400) {
-                const chunk = contactsArray.slice(i, i + 400);
-                const batch = writeBatch(db);
-                chunk.forEach(c => {
-                    const docRef = doc(db, 'contacts', c.id);
-                    batch.set(docRef, { ...c });
-                });
-                await batch.commit();
-            }
-            alert(`성공적으로 ${contactsArray.length}명의 연락처를 통합 업로드했습니다.`);
-        } catch (error) {
-            console.error('Failed to import bulk contacts:', error);
-            alert('데이터 업로드 중 오류가 발생했습니다. 권한을 확인해주세요.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const resetDatabase = async () => {
-        if (user?.role !== 'DEVELOPER') return;
-        
-        if (!window.confirm("⚠️ 위험: 데이터베이스의 모든 연락처를 삭제하고 contacts.json 데이터로 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
-            return;
-        }
-
-        setLoading(true);
-        try {
-            console.log("Starting full database reset...");
-            
-            // 1. Wipe everything (in chunks of 400)
-            const contactsRef = collection(db, 'contacts');
-            let hasMore = true;
-            let totalDeleted = 0;
-            while (hasMore) {
-                const snap = await getDocs(query(contactsRef, limit(400)));
-                if (snap.empty) {
-                    hasMore = false;
-                    break;
-                }
-                const batch = writeBatch(db);
-                snap.docs.forEach(d => batch.delete(d.ref));
-                await batch.commit();
-                totalDeleted += snap.size;
-                console.log(`Deleted ${totalDeleted} contacts...`);
-                // Increase delay to 1 second to be very safe with rate limits
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
-            // 2. Re-seed from contacts.json
-            const dataToSeed = contactsData; 
-            for (let i = 0; i < dataToSeed.length; i += 400) {
-                const chunk = dataToSeed.slice(i, i + 400);
-                const batch = writeBatch(db);
-                chunk.forEach(c => {
-                    batch.set(doc(db, 'contacts', c.id), {
-                        ...c,
-                        status: c.status || 'UNASSIGNED',
-                        assignedTo: c.assignedTo || null
-                    });
-                });
-                await batch.commit();
-                console.log(`Seeded ${Math.min(i + 400, dataToSeed.length)}/${dataToSeed.length}...`);
-                // Increase delay to 1 second to be very safe with rate limits
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-            
-            alert(`성공적으로 데이터베이스를 초기화하고 ${dataToSeed.length}개의 연락처를 등록했습니다.`);
-            window.location.reload(); 
-        } catch (error) {
-            console.error('Failed to reset database:', error);
-            alert('초기화 중 오류가 발생했습니다: ' + error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const getVolunteerStats = (volunteerId) => {
-        // If we already have the contacts in state (for the volunteer themselves)
-        if (contacts.length > 0 && user?.id === volunteerId) {
-            const assigned = contacts.filter(c => c.assignedTo === volunteerId);
+        // Since we are using Supabase, we can calculate this from local state if loaded
+        // or just return 0s if not.
+        const vContacts = contacts.filter(c => c.assigned_to === volunteerId || c.assignedTo === volunteerId);
+        if (vContacts.length > 0) {
+            const assigned = vContacts;
             const completedContacts = assigned.filter(c => c.status === 'CALLED');
             return {
                 total: assigned.length,
@@ -332,11 +300,6 @@ export const CampaignProvider = ({ children }) => {
                 progress: assigned.length === 0 ? 0 : Math.round((completedContacts.length / assigned.length) * 100)
             };
         }
-        
-        // Otherwise, use the pre-calculated stats from AdminDashboard (or return 0s)
-        // Note: For a proper implementation, this should be reactive, but since
-        // Admins now fetch stats manually, we return the cached value if exist.
-        // For the VolunteerDashboard specifically, we'll fetch docs if not loaded.
         return { total: 0, completed: 0, remaining: 0, progress: 0 };
     };
 
@@ -344,26 +307,26 @@ export const CampaignProvider = ({ children }) => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return {};
         
         try {
+            // In SQL we can do this with a single efficient query
+            const { data, error } = await supabase
+                .from('contacts')
+                .select('assigned_to, status')
+                .in('assigned_to', volunteerIds);
+
+            if (error) throw error;
+
             const statsMap = {};
-            const contactsRef = collection(db, 'contacts');
-            
-            // To save quota, we process them sequentially with a small delay
-            for (const vid of volunteerIds) {
-                const totalSnap = await getCountFromServer(query(contactsRef, where('assignedTo', '==', vid)));
-                const completedSnap = await getCountFromServer(query(contactsRef, where('assignedTo', '==', vid), where('status', '==', 'CALLED')));
-                
-                const total = totalSnap.data().count;
-                const completed = completedSnap.data().count;
-                
+            volunteerIds.forEach(vid => {
+                const assigned = data.filter(c => c.assigned_to === vid);
+                const completed = assigned.filter(c => c.status === 'CALLED').length;
+                const total = assigned.length;
                 statsMap[vid] = {
                     total,
                     completed,
                     remaining: total - completed,
                     progress: total === 0 ? 0 : Math.round((completed / total) * 100)
                 };
-                // Small sleep to stay under rate limit
-                await new Promise(r => setTimeout(r, 100));
-            }
+            });
             
             return statsMap;
         } catch (error) {
@@ -374,24 +337,21 @@ export const CampaignProvider = ({ children }) => {
 
     const getCampaignStats = async () => {
         try {
-            const contactsRef = collection(db, 'contacts');
-            
-            // Critical optimization: Use simple counts with catch to handle quota
-            const totalSnap = await getCountFromServer(contactsRef).catch(() => null);
-            if (!totalSnap) throw new Error("Quota Exceeded");
-            const total = totalSnap.data().count;
+            // Use Supabase for aggregation
+            const { count: total } = await supabase.from('contacts').select('*', { count: 'exact', head: true });
+            const { count: completed } = await supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('status', 'CALLED');
+            const { count: unassigned } = await supabase.from('contacts').select('*', { count: 'exact', head: true }).is('assigned_to', null);
 
-            const completedSnap = await getCountFromServer(query(contactsRef, where('status', '==', 'CALLED'))).catch(() => ({ data: () => ({ count: 0 }) }));
-            const completed = (completedSnap.data && completedSnap.data()) ? completedSnap.data().count : 0;
-
-            const unassignedSnap = await getCountFromServer(query(contactsRef, where('assignedTo', '==', null))).catch(() => ({ data: () => ({ count: 0 }) }));
-            const unassigned = (unassignedSnap.data && unassignedSnap.data()) ? unassignedSnap.data().count : 0;
-
-            return { total, completed, unassigned, surveyCount: completed, results: {} };
+            return { total: total || 0, completed: completed || 0, unassigned: unassigned || 0, surveyCount: completed || 0, results: {} };
         } catch (e) {
             console.error("Stats fetch failed", e);
             return { total: 0, completed: 0, unassigned: 0, surveyCount: 0, results: {}, error: e.message };
         }
+    };
+
+    const resetDatabase = async () => {
+        if (user?.role !== 'DEVELOPER') return;
+        alert('이 기능은 Supabase 환경에서 마이그레이션 스크립트를 통해 지원됩니다.');
     };
 
     const value = {
@@ -402,7 +362,6 @@ export const CampaignProvider = ({ children }) => {
         addContact,
         updateContact,
         deleteContact,
-        importBulkContacts,
         fetchContactsPaginated,
         fetchVolunteerContacts,
         getVolunteerStats,
