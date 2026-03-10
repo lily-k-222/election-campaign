@@ -178,7 +178,7 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                         {/* 멘트 스크립트 박스 */}
                         <div className="bg-[#1e3a8a]/5 p-3 rounded-xl border border-[#1e3a8a]/20">
                             <p className="text-[13px] font-bold text-[#1e3a8a] leading-relaxed">
-                                "안녕하세요! 바쁘신 중에 전화 받아주셔서 감사합니다. 저는 강진군 발전을 위해 뛰고 있는 진보미 후보 선거캠프에서 연락드렸습니다. 이번 선거에서 저희 진보미 후보를 응원해주실 마음이 있으신지 조심스럽게 고견을 여쭙고 싶습니다."
+                                "안녕하세요! 바쁘신 중에 전화 받아주셔서 감사합니다. 저는 강진군 발전을 위해 뛰고 있는 김보미 후보 선거캠프에서 연락드렸습니다. 이번 선거에서 저희 김보미 후보를 응원해주실 마음이 있으신지 조심스럽게 고견을 여쭙고 싶습니다."
                             </p>
                         </div>
 
