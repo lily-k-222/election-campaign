@@ -327,7 +327,7 @@ export const AdminDashboard = () => {
                                     <button
                                         className="w-full mt-6 py-2.5 bg-[#1e3a8a] hover:bg-[#1e40af] text-white rounded-lg font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed Active:scale-[0.98] text-[15px] tracking-tight"
                                         onClick={handleAssign}
-                                        disabled={unassignedCount === 0 || unassignedCount < assignCount || !selectedVolunteer}
+                                        disabled={unassignedCount === 0 || !selectedVolunteer}
                                     >
                                         <div className="w-5 h-5 bg-white border border-[#1e3a8a] text-[#1e3a8a] rounded-full flex items-center justify-center pb-0.5">
                                             <UserIcon size={12} fill="currentColor" strokeWidth={1} /> 
