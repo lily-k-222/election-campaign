@@ -238,6 +238,60 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
+    const resetDatabase = async () => {
+        if (user?.role !== 'DEVELOPER') return;
+        
+        if (!window.confirm("⚠️ 위험: 데이터베이스의 모든 연락처를 삭제하고 contacts.json 데이터로 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            console.log("Starting full database reset...");
+            
+            // 1. Wipe everything (in chunks of 400)
+            const contactsRef = collection(db, 'contacts');
+            let hasMore = true;
+            let totalDeleted = 0;
+            while (hasMore) {
+                const snap = await getDocs(query(contactsRef, limit(400)));
+                if (snap.empty) {
+                    hasMore = false;
+                    break;
+                }
+                const batch = writeBatch(db);
+                snap.docs.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+                totalDeleted += snap.size;
+                console.log(`Deleted ${totalDeleted} contacts...`);
+            }
+
+            // 2. Re-seed from contacts.json
+            const dataToSeed = contactsData; 
+            for (let i = 0; i < dataToSeed.length; i += 400) {
+                const chunk = dataToSeed.slice(i, i + 400);
+                const batch = writeBatch(db);
+                chunk.forEach(c => {
+                    batch.set(doc(db, 'contacts', c.id), {
+                        ...c,
+                        status: c.status || 'UNASSIGNED',
+                        assignedTo: c.assignedTo || null
+                    });
+                });
+                await batch.commit();
+                console.log(`Seeded ${Math.min(i + 400, dataToSeed.length)}/${dataToSeed.length}...`);
+            }
+            
+            alert(`성공적으로 데이터베이스를 초기화하고 ${dataToSeed.length}개의 연락처를 등록했습니다.`);
+            window.location.reload(); 
+        } catch (error) {
+            console.error('Failed to reset database:', error);
+            alert('초기화 중 오류가 발생했습니다: ' + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const getVolunteerStatsLocal = (volunteerId) => {
         const assigned = contacts.filter(c => c.assignedTo === volunteerId);
         const completedContacts = assigned.filter(c => c.status === 'CALLED' || c.supportLevel);
@@ -328,6 +382,7 @@ export const CampaignProvider = ({ children }) => {
         getVolunteerStats: user?.role === 'VOLUNTEER' ? getVolunteerStatsLocal : () => ({ total: 0, completed: 0, remaining: 0, progress: 0 }),
         fetchAllVolunteerStats,
         getCampaignStats,
+        resetDatabase,
         loading
     };
 
