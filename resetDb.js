@@ -29,39 +29,48 @@ const resetDB = async () => {
     const contactsRef = collection(db, 'contacts');
     const snap = await getDocs(contactsRef);
     
-    // Delete existing
-    const deleteBatch = writeBatch(db);
+    // Delete existing contacts in chunks of 400
     let count = 0;
-    snap.docs.forEach(docSnap => {
-        deleteBatch.delete(docSnap.ref);
-        count++;
-    });
-    console.log(`Deleting ${count} existing contacts...`);
-    await deleteBatch.commit();
-    console.log("Deleted existing contacts.");
-
-    // Add 30 dummy
-    const addBatch = writeBatch(db);
-    for (let i = 1; i <= 30; i++) {
-        const newId = `test_c_${Date.now()}_${i}`;
-        const docRef = doc(db, 'contacts', newId);
-        addBatch.set(docRef, {
-            id: newId,
-            name: `테스트당원 ${i}`,
-            age: `${20 + (i % 5)*10}대`,
-            memberType: i % 2 === 0 ? '권리당원' : '일반당원',
-            region: `테스트동 ${i}구`,
-            phone: `010-1234-1234`, // requested by user
-            status: 'UNASSIGNED',
-            surveyResult: null,
-            supportLevel: null,
-            notes: '테스트용 데이터입니다.',
-            assignedTo: null
+    for (let i = 0; i < snap.docs.length; i += 400) {
+        const chunk = snap.docs.slice(i, i + 400);
+        const deleteBatch = writeBatch(db);
+        chunk.forEach(docSnap => {
+            deleteBatch.delete(docSnap.ref);
+            count++;
         });
+        await deleteBatch.commit();
+        console.log(`Deleted chunk of ${chunk.length} contacts...`);
     }
-    console.log(`Adding 30 new test contacts...`);
-    await addBatch.commit();
-    console.log("Success! DB has been reset with 30 test contacts.");
+    console.log(`Deleted total ${count} existing contacts.`);
+
+    // Add 1000 dummy contacts in chunks of 400
+    console.log(`Adding 1000 new test contacts...`);
+    for (let i = 0; i < 1000; i += 400) {
+        const addBatch = writeBatch(db);
+        const end = Math.min(i + 400, 1000);
+        
+        for (let j = i + 1; j <= end; j++) {
+            const newId = `test_c_${Date.now()}_${j}`;
+            const docRef = doc(db, 'contacts', newId);
+            addBatch.set(docRef, {
+                id: newId,
+                name: `테스트당원 ${j}`,
+                age: `${20 + (j % 5)*10}대`,
+                memberType: j % 2 === 0 ? '권리당원' : '일반당원',
+                region: `테스트동 ${j%10 + 1}구`,
+                phone: `010-1234-1234`,
+                status: 'UNASSIGNED',
+                surveyResult: null,
+                supportLevel: null,
+                notes: '테스트용 데이터입니다.',
+                assignedTo: null
+            });
+        }
+        await addBatch.commit();
+        console.log(`Added chunk of ${end - i} test contacts...`);
+    }
+
+    console.log("Success! DB has been reset with 1000 test contacts.");
     process.exit(0);
   } catch (err) {
     console.error("Error resetting DB:", err);
