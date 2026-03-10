@@ -1,25 +1,31 @@
 import React, { useState } from 'react';
 import { useCampaign } from '../context/CampaignContext';
-import { Phone, User, Calendar, MapPin, Tag, FileText, X, Plus } from 'lucide-react';
+import { Phone, User, Calendar, MapPin, Tag, FileText, X, Plus, Heart } from 'lucide-react';
 
 export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
     const { updateContact } = useCampaign();
     const [newRecord, setNewRecord] = useState('');
+    const [supportLevel, setSupportLevel] = useState('관심없음'); // Default
 
     if (!isOpen || !contact) return null;
+
+    const supportOptions = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
 
     const handleAddRecord = () => {
         if (!newRecord.trim()) return;
         
         const now = new Date();
         const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        const recordEntry = `[${dateString}] ${newRecord.trim()}`;
+        const recordEntry = `[${dateString}] ${newRecord.trim()}\n(성향: ${supportLevel})`;
         
         const updatedNotes = contact.notes 
             ? `${contact.notes}\n${recordEntry}` 
             : recordEntry;
 
-        updateContact(contact.id, { notes: updatedNotes });
+        updateContact(contact.id, { 
+            notes: updatedNotes,
+            supportLevel: supportLevel 
+        });
         setNewRecord('');
     };
 
@@ -60,6 +66,10 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                                 <span className="text-[12px] font-bold text-slate-400 mb-0.5 flex items-center gap-1"><Tag size={12}/>당원구분</span>
                                 <span className="font-extrabold">{contact.memberType || '-'}</span>
                             </div>
+                            <div className="flex flex-col">
+                                <span className="text-[12px] font-bold text-slate-400 mb-0.5 flex items-center gap-1"><Heart size={12}/>현재 성향</span>
+                                <span className="font-extrabold text-[#1e3a8a]">{contact.supportLevel || '-'}</span>
+                            </div>
                             <div className="flex flex-col col-span-2">
                                 <span className="text-[12px] font-bold text-slate-400 mb-0.5 flex items-center gap-1"><MapPin size={12}/>지역/법정동</span>
                                 <span className="font-extrabold">{contact.region || '-'}</span>
@@ -82,13 +92,42 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                     </div>
 
                     {/* Add New Record */}
-                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col gap-3">
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col gap-4">
                         <h4 className="text-[14px] font-extrabold text-[#1e3a8a]">새 통화내용 기록 추가</h4>
+                        
+                        {/* 멘트 스크립트 박스 */}
+                        <div className="bg-[#1e3a8a]/5 p-3 rounded-xl border border-[#1e3a8a]/20">
+                            <p className="text-[13px] font-bold text-[#1e3a8a] leading-relaxed">
+                                "안녕하세요, 강진군 진보미 후보 자원봉사자입니다. 김보미 후보를 지지하십니까?"
+                            </p>
+                        </div>
+
+                        {/* 성향 선택 버튼 */}
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[13px] font-bold text-slate-600">유권자 성향 파악</label>
+                            <div className="flex flex-wrap gap-2">
+                                {supportOptions.map(option => (
+                                    <button
+                                        key={option}
+                                        onClick={() => setSupportLevel(option)}
+                                        className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors border ${
+                                            supportLevel === option 
+                                                ? 'bg-[#1e3a8a] text-white border-[#1e3a8a] shadow-sm' 
+                                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        {option}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 메모 입력 및 등록 버튼 */}
                         <div className="flex gap-2">
                             <textarea
                                 className="w-full flex-1 border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a] rounded-xl p-3 text-[13px] font-medium resize-none transition-all placeholder:text-slate-400"
-                                placeholder="통화 내용을 상세하게 기록해주세요..."
-                                rows={2}
+                                placeholder="통화 내용을 상세하게 기록해주세요... (선택한 성향은 자동으로 함께 저장됩니다)"
+                                rows={3}
                                 value={newRecord}
                                 onChange={(e) => setNewRecord(e.target.value)}
                             />

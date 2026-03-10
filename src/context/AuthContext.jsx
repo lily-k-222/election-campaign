@@ -132,10 +132,16 @@ export const AuthProvider = ({ children }) => {
         try {
             // 인앱 브라우저(카카오톡, 네이버, 인스타그램 등) 체크
             const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-            const isInApp = /KAKAOTALK|Instagram|NAVER|Line|Daum|MicroMessenger/i.test(userAgent);
+            const isKakao = /KAKAOTALK/i.test(userAgent);
+            const isInApp = /Instagram|NAVER|Line|Daum|MicroMessenger/i.test(userAgent);
             
-            if (isInApp) {
-                alert("카카오톡 등 앱 내부 브라우저에서는 구글 보안 정책상 로그인이 차단됩니다.\n현재 화면의 링크 주소를 복사하신 후, 인터넷 브라우저(크롬, 사파리, 삼성 인터넷 등) 주소창에 붙여넣어 접속해주세요.");
+            if (isKakao) {
+                // 카카오톡 외부 브라우저(사파리/크롬)로 자동 실행
+                // 현재 URL을 그대로 전달
+                window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(window.location.href)}`;
+                throw new Error("REDIRECTING_TO_EXTERNAL_BROWSER"); // UI 처리를 위해 에러 throw
+            } else if (isInApp) {
+                alert("앱 내부 브라우저에서는 구글 보안 정책상 로그인이 차단됩니다.\n현재 화면의 링크 주소를 복사하신 후, 인터넷 브라우저(크롬, 사파리, 삼성 인터넷 등) 주소창에 붙여넣어 접속해주세요.");
                 
                 // 안드로이드의 경우 크롬 강제 실행 시도
                 if (/android/i.test(userAgent)) {
