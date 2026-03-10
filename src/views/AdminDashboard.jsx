@@ -16,7 +16,8 @@ export const AdminDashboard = () => {
         assignQuota,
         addContact,
         updateContact,
-        deleteContact
+        deleteContact,
+        resetTestData
     } = useCampaign();
 
     const { getAllUsers, updateUserRole, user: currentUser } = useAuth();
