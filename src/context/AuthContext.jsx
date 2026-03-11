@@ -95,17 +95,17 @@ export const AuthProvider = ({ children }) => {
         };
     }, []);
 
+    const fetchUsers = async () => {
+        const { data, error } = await supabase.from('users').select('*');
+        if (!error) setAllUsers(data || []);
+    };
+
     // Sync all users and handle real-time updates (Supabase)
     useEffect(() => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) {
             setAllUsers([]);
             return;
         }
-
-        const fetchUsers = async () => {
-            const { data, error } = await supabase.from('users').select('*');
-            if (!error) setAllUsers(data || []);
-        };
 
         fetchUsers();
 
@@ -212,6 +212,7 @@ export const AuthProvider = ({ children }) => {
         updateUserName,
         allUsers,
         getAllUsers,
+        fetchUsers,
         loading
     };
 

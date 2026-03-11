@@ -26,7 +26,7 @@ export const AdminDashboard = () => {
         loading: contextLoading
     } = useCampaign();
 
-    const { getAllUsers, updateUserRole, user: currentUser } = useAuth();
+    const { getAllUsers, updateUserRole, updateUserName, fetchUsers, user: currentUser } = useAuth();
     const users = getAllUsers(); // Fix ReferenceError
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('campaign'); // 'campaign' or 'users' or 'contacts'
@@ -107,22 +107,23 @@ export const AdminDashboard = () => {
         }
     }, [contextLoading, !!users]);
 
+    const loadContacts = async () => {
+        if (activeTab === 'contacts') {
+            setIsDataLoading(true);
+            const result = await fetchContactsPaginated({ 
+                page: contactPage, 
+                pageSize: contactsPerPage, 
+                filters: { volunteerId: volunteerFilter },
+                search: contactSearchTerm 
+            });
+            setContactData(result.data || []);
+            setTotalContacts(result.total || 0);
+            setIsDataLoading(false);
+        }
+    };
+
     // Paginated Fetch Effect
     React.useEffect(() => {
-        const loadContacts = async () => {
-            if (activeTab === 'contacts') {
-                setIsDataLoading(true);
-                const result = await fetchContactsPaginated({ 
-                    page: contactPage, 
-                    pageSize: contactsPerPage, 
-                    filters: { volunteerId: volunteerFilter },
-                    search: contactSearchTerm 
-                });
-                setContactData(result.data);
-                setTotalContacts(result.total);
-                setIsDataLoading(false);
-            }
-        };
         loadContacts();
     }, [activeTab, contactPage, contactSearchTerm, volunteerFilter]);
 
@@ -203,13 +204,15 @@ export const AdminDashboard = () => {
         }
     };
 
-    const handleAssign = () => {
+    const handleAssign = async () => {
         if (!selectedVolunteer) {
             showDialog('alert', '안내', '할당할 자원봉사자를 먼저 선택해주세요.');
             return;
         }
-        assignQuota(selectedVolunteer, assignCount);
-        showDialog('alert', '할당 완료', `${assignCount}명의 무작위 당원 연락처가 할당되었습니다.`);
+        await assignQuota(selectedVolunteer, assignCount);
+        // Manual Refresh
+        loadStats();
+        loadContacts();
         setSelectedVolunteer(''); // Reset
     };
 
@@ -218,6 +221,8 @@ export const AdminDashboard = () => {
             const result = await updateUserRole(userId, newRole);
             if (result && result.success) {
                 showDialog('alert', '권한 변경 완료', `${name} 회원의 권한이 ${newRole}으로 변경되었습니다.`);
+                // Manual Refresh
+                fetchUsers();
             } else {
                 const errMsg = result?.error?.message || '알 수 없는 오류가 발생했습니다.';
                 showDialog('alert', '권한 변경 실패', `오류: ${errMsg}`);
@@ -235,6 +240,8 @@ export const AdminDashboard = () => {
         const result = await updateUserName(userId, tempName);
         if (result && result.success) {
             setEditingUserId(null);
+            // Manual Refresh
+            fetchUsers();
         } else {
             showDialog('alert', '오류', '이름 수정에 실패했습니다.');
         }
@@ -253,11 +260,16 @@ export const AdminDashboard = () => {
         setIsDetailModalOpen(true);
     };
 
-    const handleContactSubmit = (formData) => {
+    const handleContactSubmit = async (formData) => {
+        let res;
         if (editingContact) {
-            updateContact(editingContact.id, formData);
+            res = await updateContact(editingContact.id, formData);
         } else {
-            addContact(formData);
+            res = await addContact(formData);
+        }
+        if (res?.success) {
+            loadContacts();
+            loadStats();
         }
     };
 
@@ -281,10 +293,17 @@ export const AdminDashboard = () => {
             return;
         }
         showDialog('confirm', '일괄 할당', `선택한 ${selectedContacts.length}명의 연락처를 지정한 자원봉사자에게 할당하시겠습니까?`, async () => {
-            await reassignContacts(selectedContacts, bulkAssignVolunteer);
-            setSelectedContacts([]);
-            setBulkAssignVolunteer('');
-            showDialog('alert', '할당 완료', '연락처가 성공적으로 일괄 할당되었습니다.');
+            const res = await reassignContacts(selectedContacts, bulkAssignVolunteer);
+            if (res && res.success) {
+                setSelectedContacts([]);
+                setBulkAssignVolunteer('');
+                showDialog('alert', '할당 완료', '연락처가 성공적으로 일괄 할당되었습니다.');
+                // Manual Refresh
+                loadContacts();
+                loadStats();
+            } else {
+                showDialog('alert', '오류', '할당 변경에 실패했습니다.');
+            }
         });
     };
 

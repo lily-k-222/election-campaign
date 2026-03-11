@@ -179,7 +179,7 @@ export const CampaignProvider = ({ children }) => {
 
     // Admin action: Reassign specific contacts to a volunteer
     const reassignContacts = async (contactIds, volunteerId) => {
-        if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return;
+        if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return { success: false, error: 'Unauthorized' };
         const actualVolunteerId = (volunteerId === 'UNASSIGNED' || !volunteerId) ? null : volunteerId;
 
         try {
@@ -189,8 +189,10 @@ export const CampaignProvider = ({ children }) => {
                 .in('id', contactIds);
             
             if (error) throw error;
+            return { success: true };
         } catch (error) {
             console.error('Failed to reassign contacts:', error);
+            return { success: false, error };
         }
     };
 
@@ -207,14 +209,16 @@ export const CampaignProvider = ({ children }) => {
                 .eq('id', contactId);
             
             if (error) throw error;
+            return { success: true };
         } catch (error) {
             console.error('Failed to sync call record:', error);
+            return { success: false, error };
         }
     };
 
     // Admin action: Add a new contact
     const addContact = async (contactData) => {
-        if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return;
+        if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return { success: false, error: 'Unauthorized' };
 
         try {
             const newId = `c_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -227,8 +231,10 @@ export const CampaignProvider = ({ children }) => {
                 .insert([payload]);
             
             if (error) throw error;
+            return { success: true };
         } catch (error) {
             console.error('Failed to add contact:', error);
+            return { success: false, error };
         }
     };
 
@@ -243,14 +249,16 @@ export const CampaignProvider = ({ children }) => {
                 .eq('id', contactId);
             
             if (error) throw error;
+            return { success: true };
         } catch (error) {
             console.error('Failed to update contact:', error);
+            return { success: false, error };
         }
     };
 
     // Admin action: Delete a contact
     const deleteContact = async (contactId) => {
-        if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return;
+        if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return { success: false, error: 'Unauthorized' };
         try {
             const { error } = await supabase
                 .from('contacts')
@@ -258,8 +266,10 @@ export const CampaignProvider = ({ children }) => {
                 .eq('id', contactId);
             
             if (error) throw error;
+            return { success: true };
         } catch (error) {
             console.error('Failed to delete contact:', error);
+            return { success: false, error };
         }
     };
 
