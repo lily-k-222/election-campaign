@@ -53,7 +53,27 @@ export const AuthProvider = ({ children }) => {
                         
                         setUser({ id: firebaseUser.uid, ...userData, role: currentRole });
                     } else {
-                        // Create user in Supabase
+                        // Check if user was pre-added by email (Admin Manual Addition)
+                        const { data: preRegistered } = await supabase
+                            .from('users')
+                            .select('*')
+                            .eq('email', firebaseUser.email)
+                            .single();
+
+                        if (preRegistered) {
+                            // Link pre-registered user with their actual Firebase UID
+                            const { error: linkErr } = await supabase
+                                .from('users')
+                                .update({ id: firebaseUser.uid })
+                                .eq('email', firebaseUser.email);
+                            
+                            if (!linkErr) {
+                                setUser({ id: firebaseUser.uid, ...preRegistered });
+                                return;
+                            }
+                        }
+
+                        // Create new user in Supabase
                         let assignedRole = 'UNAUTHORIZED';
                         if (firebaseUser.email === 'wangjaelee@gmail.com') {
                             assignedRole = 'ADMIN';
@@ -181,7 +201,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const updateUserRole = async (userId, newRole) => {
-        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return;
+        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return { success: false, error: 'Unauthorized' };
         
         try {
             const { error } = await supabase
@@ -200,6 +220,31 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const addUserManually = async (email, name, role = 'VOLUNTEER') => {
+        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return { success: false, error: 'Unauthorized' };
+        
+        try {
+            // Check if user already exists
+            const { data: existing } = await supabase.from('users').select('id').eq('email', email).single();
+            if (existing) {
+                return { success: false, error: '이미 등록된 이메일입니다.' };
+            }
+
+            const { error } = await supabase.from('users').insert([{
+                id: `pending:${Date.now()}`, // Temporary ID
+                email,
+                name,
+                role
+            }]);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error("Manual user addition failed:", error);
+            return { success: false, error };
+        }
+    };
+
     const getAllUsers = () => allUsers;
 
     const value = {
@@ -210,6 +255,7 @@ export const AuthProvider = ({ children }) => {
         role: user?.role || null,
         updateUserRole,
         updateUserName,
+        addUserManually,
         allUsers,
         getAllUsers,
         fetchUsers,

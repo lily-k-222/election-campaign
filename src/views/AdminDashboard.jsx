@@ -62,6 +62,10 @@ export const AdminDashboard = () => {
     const [contactPage, setContactPage] = useState(1);
     const contactsPerPage = 50;
     const [isDataLoading, setIsDataLoading] = useState(false);
+    
+    // Manual User Addition state
+    const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+    const [newUserForm, setNewUserForm] = useState({ email: '', name: '', role: 'VOLUNTEER' });
 
     // Editing State
     const [editingUserId, setEditingUserId] = useState(null);
@@ -244,6 +248,23 @@ export const AdminDashboard = () => {
             fetchUsers();
         } else {
             showDialog('alert', '오류', '이름 수정에 실패했습니다.');
+        }
+    };
+
+    const handleManualUserAdd = async () => {
+        if (!newUserForm.email || !newUserForm.name) {
+            showDialog('alert', '안내', '이메일과 이름을 모두 입력해주세요.');
+            return;
+        }
+        
+        const res = await addUserManually(newUserForm.email, newUserForm.name, newUserForm.role);
+        if (res.success) {
+            showDialog('alert', '추가 완료', `${newUserForm.name} 회원을 ${newUserForm.role === 'ADMIN' ? '관리자' : '자원봉사자'} 권한으로 등록했습니다.`);
+            setIsAddUserModalOpen(false);
+            setNewUserForm({ email: '', name: '', role: 'VOLUNTEER' });
+            fetchUsers();
+        } else {
+            showDialog('alert', '오류', res.error || '사용자 추가에 실패했습니다.');
         }
     };
 
@@ -806,8 +827,17 @@ export const AdminDashboard = () => {
                                     </button>
                                 </div>
 
-                                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7">
-                                    <h2 className="text-[20px] font-extrabold mb-4 text-slate-800 tracking-tight">승인 대기중인 사용자</h2>
+                                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 mb-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-[20px] font-extrabold text-slate-800 tracking-tight">승인 대기중인 사용자</h2>
+                                        <button 
+                                            onClick={() => setIsAddUserModalOpen(true)}
+                                            className="px-5 py-2.5 bg-[#1e3a8a] text-white text-[14px] font-extrabold rounded-xl shadow-md hover:bg-[#1e40af] transition-all flex items-center gap-2 active:scale-95"
+                                        >
+                                            <UserIcon size={16} />
+                                            사용자 직접 추가
+                                        </button>
+                                    </div>
                                     {pendingUsers.length === 0 ? (
                                         <p className="text-gray-500 p-4 bg-gray-50 border border-gray-100 rounded-lg text-center font-medium">승인 대기중인 사용자가 없습니다.</p>
                                     ) : (
@@ -1249,6 +1279,69 @@ export const AdminDashboard = () => {
                             >
                                 전체 적용 및 저장하기
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Manual User Add Modal */}
+            {isAddUserModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[32px] w-full max-w-md shadow-2xl border border-white/20 overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="bg-[#1e3a8a] p-8 text-center relative">
+                            <button onClick={() => setIsAddUserModalOpen(false)} className="absolute right-6 top-6 text-white/60 hover:text-white transition-colors">
+                                <X size={24} />
+                            </button>
+                            <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/20 shadow-inner">
+                                <UserIcon size={32} className="text-white" />
+                            </div>
+                            <h2 className="text-2xl font-black text-white tracking-tight">사용자 직접 추가</h2>
+                            <p className="text-white/70 text-sm mt-2 font-medium">관리자가 직접 사용자를 등록합니다.</p>
+                        </div>
+                        <div className="p-8 space-y-5">
+                            <div className="space-y-2">
+                                <label className="text-[13px] font-black text-slate-500 ml-1">사용자 이름</label>
+                                <input 
+                                    type="text"
+                                    placeholder="실명을 입력하세요 (예: 홍길동)"
+                                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-[#1e3a8a] focus:bg-white outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
+                                    value={newUserForm.name}
+                                    onChange={e => setNewUserForm(prev => ({ ...prev, name: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[13px] font-black text-slate-500 ml-1">구글 계정 (이메일)</label>
+                                <input 
+                                    type="email"
+                                    placeholder="aaa@gmail.com"
+                                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-[#1e3a8a] focus:bg-white outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
+                                    value={newUserForm.email}
+                                    onChange={e => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
+                                />
+                                <p className="text-[11px] text-gray-400 ml-1">* 해당 사용자가 로그인할 때 사용할 구글 이메일을 정확히 입력해주세요.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[13px] font-black text-slate-500 ml-1">부여할 권한</label>
+                                <div className="flex gap-2 p-1.5 bg-slate-100 rounded-[20px] border border-slate-200/60 shadow-inner">
+                                    <button 
+                                        onClick={() => setNewUserForm(prev => ({ ...prev, role: 'VOLUNTEER' }))}
+                                        className={`flex-1 py-3 px-4 rounded-[14px] text-sm font-black transition-all ${newUserForm.role === 'VOLUNTEER' ? 'bg-[#1e3a8a] text-white shadow-md scale-[1.02]' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >자원봉사자</button>
+                                    <button 
+                                        onClick={() => setNewUserForm(prev => ({ ...prev, role: 'ADMIN' }))}
+                                        className={`flex-1 py-3 px-4 rounded-[14px] text-sm font-black transition-all ${newUserForm.role === 'ADMIN' ? 'bg-[#1e3a8a] text-white shadow-md scale-[1.02]' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >관리자</button>
+                                </div>
+                            </div>
+                            <div className="pt-4 flex gap-3">
+                                <button 
+                                    onClick={() => setIsAddUserModalOpen(false)}
+                                    className="flex-1 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
+                                >취소</button>
+                                <button 
+                                    onClick={handleManualUserAdd}
+                                    className="flex-[1.5] py-4 bg-[#1e3a8a] text-white font-black rounded-2xl hover:bg-[#1e40af] transition-all shadow-lg shadow-blue-900/10 active:scale-95 flex items-center justify-center gap-2"
+                                >등록 완료</button>
+                            </div>
                         </div>
                     </div>
                 </div>
