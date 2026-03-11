@@ -58,9 +58,14 @@ export const AdminDashboard = () => {
     const [contactData, setContactData] = useState([]);
     const [totalContacts, setTotalContacts] = useState(0);
     const [contactSearchTerm, setContactSearchTerm] = useState('');
+    const [volunteerFilter, setVolunteerFilter] = useState('ALL');
     const [contactPage, setContactPage] = useState(1);
     const contactsPerPage = 50;
     const [isDataLoading, setIsDataLoading] = useState(false);
+
+    // Editing State
+    const [editingUserId, setEditingUserId] = useState(null);
+    const [tempName, setTempName] = useState('');
     
     // Stats State
     const [campaignStats, setCampaignStats] = useState({ total: 0, completed: 0, surveyCount: 0, results: {} });
@@ -110,6 +115,7 @@ export const AdminDashboard = () => {
                 const result = await fetchContactsPaginated({ 
                     page: contactPage, 
                     pageSize: contactsPerPage, 
+                    filters: { volunteerId: volunteerFilter },
                     search: contactSearchTerm 
                 });
                 setContactData(result.data);
@@ -118,7 +124,7 @@ export const AdminDashboard = () => {
             }
         };
         loadContacts();
-    }, [activeTab, contactPage, contactSearchTerm]);
+    }, [activeTab, contactPage, contactSearchTerm, volunteerFilter]);
 
     const showDialog = (type, title, message, onConfirm = null) => {
         setDialogConfig({ isOpen: true, type, title, message, onConfirm });
@@ -217,6 +223,21 @@ export const AdminDashboard = () => {
                 showDialog('alert', '권한 변경 실패', `오류: ${errMsg}`);
             }
         });
+    };
+
+    const handleNameEdit = (user) => {
+        setEditingUserId(user.id);
+        setTempName(user.name);
+    };
+
+    const handleNameSave = async (userId) => {
+        if (!tempName.trim()) return;
+        const result = await updateUserName(userId, tempName);
+        if (result && result.success) {
+            setEditingUserId(null);
+        } else {
+            showDialog('alert', '오류', '이름 수정에 실패했습니다.');
+        }
     };
 
     // const unassignedCount = contacts.filter(c => !c.assignedTo || c.assignedTo === 'UNASSIGNED').length;
@@ -820,6 +841,7 @@ export const AdminDashboard = () => {
                                                 <tr>
                                                     <th className="p-4 pl-5">이름</th>
                                                     <th className="p-4">이메일</th>
+                                                    <th className="p-4">할당/완료</th>
                                                     <th className="p-4 text-right pr-5">현재 권한 및 변경</th>
                                                 </tr>
                                             </thead>
@@ -835,13 +857,48 @@ export const AdminDashboard = () => {
                                                     }
                                                     
                                                     if (list.length === 0) {
-                                                        return <tr><td colSpan="3" className="p-6 text-center text-gray-500 font-medium">검색 결과가 없습니다.</td></tr>;
+                                                        return <tr><td colSpan="4" className="p-6 text-center text-gray-500 font-medium">검색 결과가 없습니다.</td></tr>;
                                                     }
 
-                                                    return list.map(user => (
-                                                        <tr key={user.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
-                                                            <td className="p-4 pl-5 font-bold text-gray-800">{user.name}</td>
-                                                            <td className="p-4 text-gray-500">{user.email}</td>
+                                                    return list.map(user => {
+                                                        const stats = volunteerStatsMap[user.id] || { completed: 0, total: 0 };
+                                                        const isEditing = editingUserId === user.id;
+
+                                                        return (
+                                                            <tr key={user.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                                                                <td className="p-4 pl-5 font-bold text-gray-800">
+                                                                    {isEditing ? (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <input 
+                                                                                type="text" 
+                                                                                className="px-2 py-1 border border-blue-300 rounded outline-none focus:ring-2 focus:ring-blue-100 text-sm w-32"
+                                                                                value={tempName}
+                                                                                onChange={(e) => setTempName(e.target.value)}
+                                                                                autoFocus
+                                                                            />
+                                                                            <button onClick={() => handleNameSave(user.id)} className="text-blue-600 hover:text-blue-800"><Save size={16} /></button>
+                                                                            <button onClick={() => setEditingUserId(null)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2 group">
+                                                                            {user.name}
+                                                                            <button 
+                                                                                onClick={() => handleNameEdit(user)}
+                                                                                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-[#1e3a8a] transition-all"
+                                                                            >
+                                                                                <Edit2 size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                                <td className="p-4 text-gray-500">{user.email}</td>
+                                                                <td className="p-4">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-sm font-bold text-gray-700">{stats.completed}</span>
+                                                                        <span className="text-xs text-gray-400">/</span>
+                                                                        <span className="text-sm font-medium text-gray-500">{stats.total}</span>
+                                                                    </div>
+                                                                </td>
                                                             <td className="p-4 text-right pr-5">
                                                                 {user.id === currentUser.id ? (
                                                                     <div className="inline-block px-4 py-1.5 bg-[#1e3a8a] text-white rounded-xl text-[13px] font-extrabold shadow-sm border border-slate-200/80">
@@ -865,7 +922,8 @@ export const AdminDashboard = () => {
                                                                 )}
                                                             </td>
                                                         </tr>
-                                                    ));
+                                                    );
+                                                });
                                                 })()}
                                             </tbody>
                                         </table>
@@ -906,6 +964,23 @@ export const AdminDashboard = () => {
                                                 setContactPage(1); // Reset to page 1 on search
                                             }}
                                         />
+                                    </div>
+                                    <div className="ml-auto flex items-center gap-2">
+                                        <span className="text-[13px] font-bold text-gray-500">자원봉사자별 필터:</span>
+                                        <select
+                                            className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-lg outline-none text-[13px] font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-100"
+                                            value={volunteerFilter}
+                                            onChange={(e) => {
+                                                setVolunteerFilter(e.target.value);
+                                                setContactPage(1);
+                                            }}
+                                        >
+                                            <option value="ALL">전체 보기</option>
+                                            <option value="UNASSIGNED">미할당 연락처</option>
+                                            {volunteers.map(v => (
+                                                <option key={v.id} value={v.id}>{v.name}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                                 

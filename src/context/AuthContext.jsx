@@ -160,6 +160,26 @@ export const AuthProvider = ({ children }) => {
         await signOut(auth);
     };
 
+    const updateUserName = async (userId, newName) => {
+        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return;
+        
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({ name: newName })
+                .eq('id', userId);
+            
+            if (error) {
+                console.error("Supabase name update error:", error);
+                return { success: false, error };
+            }
+            return { success: true };
+        } catch (error) {
+            console.error("Failed to update name", error);
+            return { success: false, error };
+        }
+    };
+
     const updateUserRole = async (userId, newRole) => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return;
         
@@ -189,6 +209,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!user,
         role: user?.role || null,
         updateUserRole,
+        updateUserName,
         allUsers,
         getAllUsers,
         loading

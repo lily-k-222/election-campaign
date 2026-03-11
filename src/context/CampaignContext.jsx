@@ -112,6 +112,13 @@ export const CampaignProvider = ({ children }) => {
             if (filters.region && filters.region !== 'ALL') {
                 query = query.eq('region', filters.region);
             }
+            if (filters.volunteerId && filters.volunteerId !== 'ALL') {
+                if (filters.volunteerId === 'UNASSIGNED') {
+                    query = query.is('assigned_to', null);
+                } else {
+                    query = query.eq('assigned_to', filters.volunteerId);
+                }
+            }
 
             // Search
             if (search) {
