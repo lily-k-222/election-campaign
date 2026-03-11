@@ -4,14 +4,46 @@ import { useAuth } from './AuthContext';
 
 const CampaignContext = createContext();
 
+// Helper to map snake_case from Postgres to camelCase for Frontend
+const mapContact = (c) => {
+    if (!c) return null;
+    return {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        region: c.region,
+        age: c.age || '',
+        jobTitle: c.job_title || '',
+        memberType: c.member_type || '',
+        status: c.status || 'UNASSIGNED',
+        supportLevel: c.support_level || '관심없음',
+        surveyResult: c.survey_result || null,
+        notes: c.notes || '',
+        assignedTo: c.assigned_to
+    };
+};
+
+// Helper to map camelCase from Frontend to snake_case for Postgres
+const unmapContact = (data) => {
+    const mapped = {};
+    if (data.name !== undefined) mapped.name = data.name;
+    if (data.phone !== undefined) mapped.phone = data.phone;
+    if (data.region !== undefined) mapped.region = data.region;
+    if (data.age !== undefined) mapped.age = data.age;
+    if (data.jobTitle !== undefined) mapped.job_title = data.jobTitle;
+    if (data.memberType !== undefined) mapped.member_type = data.memberType;
+    if (data.status !== undefined) mapped.status = data.status;
+    if (data.supportLevel !== undefined) mapped.support_level = data.supportLevel;
+    if (data.surveyResult !== undefined) mapped.survey_result = data.surveyResult;
+    if (data.notes !== undefined) mapped.notes = data.notes;
+    if (data.assignedTo !== undefined) mapped.assigned_to = data.assignedTo === 'UNASSIGNED' ? null : data.assignedTo;
+    return mapped;
+};
+
 export const CampaignProvider = ({ children }) => {
     const [contacts, setContacts] = useState([]);
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
-
-    // Initial setup: Supabase doesn't need client-side seeding usually, 
-    // but we can keep it for the first-time setup if needed.
-    // However, we'll use our migration script instead.
 
     // Real-time listener for Volunteers
     useEffect(() => {
@@ -20,14 +52,13 @@ export const CampaignProvider = ({ children }) => {
             return;
         }
 
-        // Admins don't get a global real-time listener anymore to save performance
-        if (user.role === 'ADMIN' || user.role === 'DEVELOPER') {
-            setLoading(false); 
-            return;
-        }
-
         // Volunteers only fetch their assigned contacts
         const fetchMyContacts = async () => {
+            if (user.role === 'ADMIN' || user.role === 'DEVELOPER') {
+                setLoading(false);
+                return;
+            }
+
             const { data, error } = await supabase
                 .from('contacts')
                 .select('*')
@@ -36,35 +67,37 @@ export const CampaignProvider = ({ children }) => {
             if (error) {
                 console.error("Error fetching volunteer contacts:", error);
             } else {
-                setContacts(data || []);
+                setContacts((data || []).map(mapContact));
             }
             setLoading(false);
         };
 
         fetchMyContacts();
 
-        // Subscribe to changes
-        const channel = supabase
-            .channel('public:contacts')
-            .on('postgres_changes', { 
-                event: '*', 
-                schema: 'public', 
-                table: 'contacts',
-                filter: `assigned_to=eq.${user.id}`
-            }, (payload) => {
-                if (payload.eventType === 'INSERT') {
-                    setContacts(prev => [...prev, payload.new]);
-                } else if (payload.eventType === 'UPDATE') {
-                    setContacts(prev => prev.map(c => c.id === payload.new.id ? payload.new : c));
-                } else if (payload.eventType === 'DELETE') {
-                    setContacts(prev => prev.filter(c => c.id === payload.old.id));
-                }
-            })
-            .subscribe();
+        if (user.role !== 'ADMIN' && user.role !== 'DEVELOPER') {
+            // Subscribe to changes for assigned contacts
+            const channel = supabase
+                .channel(`public:contacts:${user.id}`)
+                .on('postgres_changes', { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'contacts',
+                    filter: `assigned_to=eq.${user.id}`
+                }, (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        setContacts(prev => [...prev, mapContact(payload.new)]);
+                    } else if (payload.eventType === 'UPDATE') {
+                        setContacts(prev => prev.map(c => c.id === payload.new.id ? mapContact(payload.new) : c));
+                    } else if (payload.eventType === 'DELETE') {
+                        setContacts(prev => prev.filter(c => c.id === payload.old.id));
+                    }
+                })
+                .subscribe();
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        }
     }, [user]);
 
     // Admin Paginated Fetching
@@ -87,7 +120,7 @@ export const CampaignProvider = ({ children }) => {
             // Search
             if (search) {
                 const searchStr = `%${search}%`;
-                query = query.or(`name.ilike.${searchStr},phone.ilike.${searchStr},job_title.ilike.${searchStr}`);
+                query = query.or(`name.ilike.${searchStr},phone.ilike.${searchStr},job_title.ilike.${searchStr},member_type.ilike.${searchStr}`);
             }
 
             // Pagination
@@ -100,21 +133,7 @@ export const CampaignProvider = ({ children }) => {
 
             if (error) throw error;
 
-            // Map field names to match frontend expectation (camelCase vs snake_case)
-            const mappedData = data.map(c => ({
-                id: c.id,
-                name: c.name,
-                phone: c.phone,
-                region: c.region,
-                jobTitle: c.job_title,
-                memberType: c.member_type,
-                status: c.status,
-                surveyResult: c.survey_result,
-                notes: c.notes,
-                assignedTo: c.assigned_to
-            }));
-
-            return { data: mappedData, total: count || 0 };
+            return { data: (data || []).map(mapContact), total: count || 0 };
         } catch (error) {
             console.error("Pagination fetch failed:", error);
             return { data: [], total: 0 };
@@ -127,7 +146,6 @@ export const CampaignProvider = ({ children }) => {
 
         setLoading(true);
         try {
-            // 1. Get IDs of unassigned contacts
             const { data: unassigned, error: fetchError } = await supabase
                 .from('contacts')
                 .select('id')
@@ -141,15 +159,12 @@ export const CampaignProvider = ({ children }) => {
             }
 
             const ids = unassigned.map(c => c.id);
-
-            // 2. Update them
             const { error: updateError } = await supabase
                 .from('contacts')
                 .update({ assigned_to: volunteerId })
                 .in('id', ids);
 
             if (updateError) throw updateError;
-            
             alert(`${ids.length}명의 연락처를 할당했습니다.`);
         } catch (error) {
             console.error('Failed to assign quota:', error);
@@ -176,7 +191,7 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
-    // Volunteer action: Record call result
+    // Action: Record call result
     const recordCall = async (contactId, result, notes = '') => {
         try {
             const { error } = await supabase
@@ -200,19 +215,13 @@ export const CampaignProvider = ({ children }) => {
 
         try {
             const newId = `c_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+            const payload = unmapContact(contactData);
+            payload.id = newId;
+            payload.status = 'UNASSIGNED';
+
             const { error } = await supabase
                 .from('contacts')
-                .insert([{
-                    id: newId,
-                    name: contactData.name,
-                    phone: contactData.phone,
-                    region: contactData.region,
-                    job_title: contactData.jobTitle,
-                    member_type: contactData.memberType,
-                    status: 'UNASSIGNED',
-                    notes: contactData.notes || '',
-                    assigned_to: null
-                }]);
+                .insert([payload]);
             
             if (error) throw error;
         } catch (error) {
@@ -223,15 +232,7 @@ export const CampaignProvider = ({ children }) => {
     // Admin & Volunteer action: Update an existing contact
     const updateContact = async (contactId, updatedData) => {
         try {
-            // Map camelCase to snake_case if applicable
-            const payload = {};
-            if (updatedData.name !== undefined) payload.name = updatedData.name;
-            if (updatedData.phone !== undefined) payload.phone = updatedData.phone;
-            if (updatedData.status !== undefined) payload.status = updatedData.status;
-            if (updatedData.notes !== undefined) payload.notes = updatedData.notes;
-            if (updatedData.assignedTo !== undefined) payload.assigned_to = updatedData.assignedTo;
-            if (updatedData.jobTitle !== undefined) payload.job_title = updatedData.jobTitle;
-            if (updatedData.surveyResult !== undefined) payload.survey_result = updatedData.surveyResult;
+            const payload = unmapContact(updatedData);
 
             const { error } = await supabase
                 .from('contacts')
@@ -269,17 +270,7 @@ export const CampaignProvider = ({ children }) => {
                 .eq('assigned_to', volunteerId);
             
             if (error) throw error;
-            return data.map(c => ({
-                id: c.id,
-                name: c.name,
-                phone: c.phone,
-                region: c.region,
-                jobTitle: c.job_title,
-                status: c.status,
-                surveyResult: c.survey_result,
-                notes: c.notes,
-                assignedTo: c.assigned_to
-            }));
+            return (data || []).map(mapContact);
         } catch (error) {
             console.error('Failed to fetch volunteer contacts:', error);
             return [];
@@ -287,17 +278,14 @@ export const CampaignProvider = ({ children }) => {
     };
 
     const getVolunteerStats = (volunteerId) => {
-        // Since we are using Supabase, we can calculate this from local state if loaded
-        // or just return 0s if not.
-        const vContacts = contacts.filter(c => c.assigned_to === volunteerId || c.assignedTo === volunteerId);
+        const vContacts = contacts.filter(c => c.assignedTo === volunteerId);
         if (vContacts.length > 0) {
-            const assigned = vContacts;
-            const completedContacts = assigned.filter(c => c.status === 'CALLED');
+            const completedContacts = vContacts.filter(c => c.status === 'CALLED');
             return {
-                total: assigned.length,
+                total: vContacts.length,
                 completed: completedContacts.length,
-                remaining: assigned.length - completedContacts.length,
-                progress: assigned.length === 0 ? 0 : Math.round((completedContacts.length / assigned.length) * 100)
+                remaining: vContacts.length - completedContacts.length,
+                progress: vContacts.length === 0 ? 0 : Math.round((completedContacts.length / vContacts.length) * 100)
             };
         }
         return { total: 0, completed: 0, remaining: 0, progress: 0 };
@@ -307,7 +295,6 @@ export const CampaignProvider = ({ children }) => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return {};
         
         try {
-            // In SQL we can do this with a single efficient query
             const { data, error } = await supabase
                 .from('contacts')
                 .select('assigned_to, status')
@@ -337,7 +324,6 @@ export const CampaignProvider = ({ children }) => {
 
     const getCampaignStats = async () => {
         try {
-            // Use Supabase for aggregation
             const { count: total } = await supabase.from('contacts').select('*', { count: 'exact', head: true });
             const { count: completed } = await supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('status', 'CALLED');
             const { count: unassigned } = await supabase.from('contacts').select('*', { count: 'exact', head: true }).is('assigned_to', null);
