@@ -46,21 +46,18 @@ export const AuthProvider = ({ children }) => {
                     if (userDoc.exists()) {
                         let userData = userDoc.data();
                         
-                        // 관리자 긴급 복구: 지정된 이메일은 무조건 승격
+                        // 관리자 긴급 복구: 지정된 이메일은 승격 (이미 권한이 있으면 존중)
                         try {
-                            if (userData.email === 'wangjaelee@gmail.com' && userData.role !== 'ADMIN') {
+                            if (userData.email === 'wangjaelee@gmail.com' && (!userData.role || userData.role === 'UNAUTHORIZED')) {
                                 userData.role = 'ADMIN';
                                 await updateDoc(userRef, { role: 'ADMIN' });
                             }
-                            if (userData.email === 'soomin8454@gmail.com' && userData.role !== 'DEVELOPER') {
+                            if (userData.email === 'soomin8454@gmail.com' && (!userData.role || userData.role === 'UNAUTHORIZED')) {
                                 userData.role = 'DEVELOPER';
                                 await updateDoc(userRef, { role: 'DEVELOPER' });
                             }
                         } catch (err) {
-                            console.warn("Emergency role update failed (likely permission issue), proceeding with local state.", err);
-                            // Even if Firestore update fails, we set the role locally for current session
-                            if (userData.email === 'soomin8454@gmail.com') userData.role = 'DEVELOPER';
-                            if (userData.email === 'wangjaelee@gmail.com') userData.role = 'ADMIN';
+                            console.warn("Emergency role update failed, proceeding with local memory.", err);
                         }
                         
                         setUser({ id: firebaseUser.uid, ...userData });

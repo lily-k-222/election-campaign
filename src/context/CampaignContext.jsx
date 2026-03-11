@@ -54,11 +54,7 @@ export const CampaignProvider = ({ children }) => {
 
         // Volunteers only fetch their assigned contacts
         const fetchMyContacts = async () => {
-            if (user.role === 'ADMIN' || user.role === 'DEVELOPER') {
-                setLoading(false);
-                return;
-            }
-
+            // Everyone can have assigned contacts to call
             const { data, error } = await supabase
                 .from('contacts')
                 .select('*')
@@ -74,9 +70,8 @@ export const CampaignProvider = ({ children }) => {
 
         fetchMyContacts();
 
-        if (user.role !== 'ADMIN' && user.role !== 'DEVELOPER') {
-            // Subscribe to changes for assigned contacts
-            const channel = supabase
+        // Subscribe to changes for assigned contacts (for everyone)
+        const channel = supabase
                 .channel(`public:contacts:${user.id}`)
                 .on('postgres_changes', { 
                     event: '*', 
@@ -97,7 +92,6 @@ export const CampaignProvider = ({ children }) => {
             return () => {
                 supabase.removeChannel(channel);
             };
-        }
     }, [user]);
 
     // Admin Paginated Fetching

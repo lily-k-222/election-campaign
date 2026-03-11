@@ -81,7 +81,7 @@ export const AdminDashboard = () => {
             setUnassignedCount(s.unassigned || 0); 
 
             if (users && users.length > 0) {
-                const vids = users.filter(u => u.role === 'VOLUNTEER').map(u => u.id);
+                const vids = users.filter(u => ['VOLUNTEER', 'ADMIN', 'DEVELOPER'].includes(u.role)).map(u => u.id);
                 if (vids.length > 0) {
                     const vStats = await fetchAllVolunteerStats(vids);
                     setVolunteerStatsMap(vStats);
@@ -127,8 +127,8 @@ export const AdminDashboard = () => {
         setDialogConfig(prev => ({ ...prev, isOpen: false }));
     };
 
-    // Volunteers are users with VOLUNTEER role
-    const volunteers = users.filter(u => u.role === 'VOLUNTEER');
+    // Volunteers are anyone with a valid role who can be assigned contacts
+    const volunteers = users.filter(u => ['VOLUNTEER', 'ADMIN', 'DEVELOPER'].includes(u.role));
     // Unauthorized users waiting for approval
     const pendingUsers = users.filter(u => u.role === 'UNAUTHORIZED');
 
