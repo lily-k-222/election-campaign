@@ -26,7 +26,7 @@ export const AdminDashboard = () => {
         loading: contextLoading
     } = useCampaign();
 
-    const { getAllUsers, updateUserRole, updateUserName, fetchUsers, user: currentUser } = useAuth();
+    const { getAllUsers, updateUserRole, updateUserName, addUserManually, fetchUsers, user: currentUser } = useAuth();
     const users = getAllUsers(); // Fix ReferenceError
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('campaign'); // 'campaign' or 'users' or 'contacts'
