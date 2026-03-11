@@ -7,7 +7,7 @@ import { Badge } from '../components/Badge';
 import { ContactFormModal } from '../components/ContactFormModal';
 import { ContactDetailModal } from '../components/ContactDetailModal';
 import { DialogModal } from '../components/DialogModal';
-import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList } from 'lucide-react';
+import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList, Edit2, Save, X } from 'lucide-react';
 
 export const AdminDashboard = () => {
     const {
