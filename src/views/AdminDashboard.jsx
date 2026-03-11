@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCampaign } from '../context/CampaignContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabase';
 import { Badge } from '../components/Badge';
 import { ContactFormModal } from '../components/ContactFormModal';
 import { ContactDetailModal } from '../components/ContactDetailModal';

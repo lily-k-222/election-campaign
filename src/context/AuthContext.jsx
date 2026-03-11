@@ -176,6 +176,8 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const getAllUsers = () => allUsers;
+
     const value = {
         user,
         login,
@@ -184,6 +186,7 @@ export const AuthProvider = ({ children }) => {
         role: user?.role || null,
         updateUserRole,
         allUsers,
+        getAllUsers,
         loading
     };
 
