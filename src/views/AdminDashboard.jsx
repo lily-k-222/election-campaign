@@ -884,7 +884,7 @@ export const AdminDashboard = () => {
                                                                             {user.name}
                                                                             <button 
                                                                                 onClick={() => handleNameEdit(user)}
-                                                                                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-[#1e3a8a] transition-all"
+                                                                                className="text-gray-400 hover:text-[#1e3a8a] transition-all"
                                                                             >
                                                                                 <Edit2 size={14} />
                                                                             </button>
@@ -966,7 +966,7 @@ export const AdminDashboard = () => {
                                         />
                                     </div>
                                     <div className="ml-auto flex items-center gap-2">
-                                        <span className="text-[13px] font-bold text-gray-500">자원봉사자별 필터:</span>
+                                        <span className="text-[13px] font-bold text-gray-500">담당자:</span>
                                         <select
                                             className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-lg outline-none text-[13px] font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-100"
                                             value={volunteerFilter}
