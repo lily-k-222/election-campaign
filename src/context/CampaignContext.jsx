@@ -19,7 +19,8 @@ const mapContact = (c) => {
         supportLevel: c.support_level || null,
         surveyResult: c.survey_result || null,
         notes: c.notes || '',
-        assignedTo: c.assigned_to
+        assignedTo: c.assigned_to,
+        callGuide: c.call_guide || ''
     };
 };
 
@@ -37,6 +38,7 @@ const unmapContact = (data) => {
     if (data.surveyResult !== undefined) mapped.survey_result = data.surveyResult;
     if (data.notes !== undefined) mapped.notes = data.notes;
     if (data.assignedTo !== undefined) mapped.assigned_to = data.assignedTo === 'UNASSIGNED' ? null : data.assignedTo;
+    if (data.callGuide !== undefined) mapped.call_guide = data.callGuide;
     return mapped;
 };
 

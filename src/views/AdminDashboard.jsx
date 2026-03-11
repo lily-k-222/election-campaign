@@ -144,6 +144,58 @@ export const AdminDashboard = () => {
     const [selectedVolunteer, setSelectedVolunteer] = useState('');
     const [assignCount, setAssignCount] = useState(5);
 
+    // New Features: Announcements and Global Settings
+    const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
+    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+    const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '' });
+    const [globalSettings, setGlobalSettings] = useState({ call_guide: '' });
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            const { data, error } = await supabase
+                .from('settings')
+                .select('*')
+                .eq('key', 'call_guide')
+                .single();
+            if (data) {
+                setGlobalSettings({ call_guide: data.value.text });
+            }
+        };
+        fetchSettings();
+    }, []);
+
+    const handleSendAnnouncement = async () => {
+        if (!announcementForm.title || !announcementForm.content) {
+            showDialog('alert', '안내', '제목과 내용을 모두 입력해주세요.');
+            return;
+        }
+
+        const { error } = await supabase
+            .from('announcements')
+            .insert([{ title: announcementForm.title, content: announcementForm.content }]);
+
+        if (error) {
+            showDialog('alert', '오류', '공지사항 전송에 실패했습니다.');
+        } else {
+            showDialog('alert', '전송 완료', '모든 사용자에게 공지 팝업이 전송되었습니다.');
+            setAnnouncementForm({ title: '', content: '' });
+            setIsAnnouncementModalOpen(false);
+        }
+    };
+
+    const handleUpdateGlobalGuide = async () => {
+        const { error } = await supabase
+            .from('settings')
+            .upsert({ key: 'call_guide', value: { text: globalSettings.call_guide } });
+
+        if (error) {
+            showDialog('alert', '오류', '안내문구 수정에 실패했습니다.');
+        } else {
+            showDialog('alert', '수정 완료', '전체 연락처의 기본 안내문구가 업데이트되었습니다.');
+            setIsSettingsModalOpen(false);
+        }
+    };
+
     const handleAssign = () => {
         if (!selectedVolunteer) {
             showDialog('alert', '안내', '할당할 자원봉사자를 먼저 선택해주세요.');
@@ -689,6 +741,24 @@ export const AdminDashboard = () => {
                         
                         {activeTab === 'users' && (
                             <>
+                                {/* Global Management Buttons */}
+                                <div className="w-full max-w-[1100px] mb-4 flex gap-4">
+                                    <button 
+                                        onClick={() => setIsAnnouncementModalOpen(true)}
+                                        className="flex-1 bg-[#1e3a8a] text-white py-4 rounded-2xl font-black text-lg shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                                    >
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                                        전체 공지 보내기
+                                    </button>
+                                    <button 
+                                        onClick={() => setIsSettingsModalOpen(true)}
+                                        className="flex-1 bg-white border-2 border-[#1e3a8a] text-[#1e3a8a] py-4 rounded-2xl font-black text-lg shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                                    >
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                        전체 안내문구 수정
+                                    </button>
+                                </div>
+
                                 <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7">
                                     <h2 className="text-[20px] font-extrabold mb-4 text-slate-800 tracking-tight">승인 대기중인 사용자</h2>
                                     {pendingUsers.length === 0 ? (
@@ -1001,6 +1071,87 @@ export const AdminDashboard = () => {
                 message={dialogConfig.message}
                 type={dialogConfig.type}
             />
+            {/* Announcement Modal */}
+            {isAnnouncementModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-[500px] overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="bg-[#1e3a8a] px-8 py-6 text-white flex justify-between items-center">
+                            <h3 className="text-xl font-black tracking-tight flex items-center gap-2">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                                전체 공지사항 작성
+                            </h3>
+                            <button onClick={() => setIsAnnouncementModalOpen(false)} className="hover:rotate-90 transition-transform">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="p-8 space-y-6">
+                            <div>
+                                <label className="block text-sm font-black text-slate-700 mb-2">공지 제목</label>
+                                <input 
+                                    type="text"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1e3a8a]/20 outline-none font-bold"
+                                    placeholder="공지사항의 제목을 입력하세요"
+                                    value={announcementForm.title}
+                                    onChange={e => setAnnouncementForm(prev => ({ ...prev, title: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-black text-slate-700 mb-2">공지 내용</label>
+                                <textarea 
+                                    rows="5"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1e3a8a]/20 outline-none font-bold"
+                                    placeholder="자원봉사자분들께 전달할 내용을 입력하세요"
+                                    value={announcementForm.content}
+                                    onChange={e => setAnnouncementForm(prev => ({ ...prev, content: e.target.value }))}
+                                ></textarea>
+                            </div>
+                            <button 
+                                onClick={handleSendAnnouncement}
+                                className="w-full py-4 bg-[#1e3a8a] hover:bg-[#1e40af] text-white rounded-2xl font-black shadow-lg transition-all active:scale-[0.98]"
+                            >
+                                지금 즉시 전송하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Global Settings Modal */}
+            {isSettingsModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-[500px] overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="bg-[#1e3a8a] px-8 py-6 text-white flex justify-between items-center">
+                            <h3 className="text-xl font-black tracking-tight flex items-center gap-2">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                전체 안내문구(스크립트) 수정
+                            </h3>
+                            <button onClick={() => setIsSettingsModalOpen(false)} className="hover:rotate-90 transition-transform">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="p-8 space-y-6">
+                            <p className="text-sm text-slate-500 font-bold leading-relaxed">
+                                이곳에서 수정하는 내용은 모든 연락처 상세 페이지에 기본으로 표시되는 안내문구(전화 상담 가이드)입니다. 
+                            </p>
+                            <div>
+                                <label className="block text-sm font-black text-slate-700 mb-2">기본 안내문구 내용</label>
+                                <textarea 
+                                    rows="8"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1e3a8a]/20 outline-none font-bold text-slate-700"
+                                    value={globalSettings.call_guide}
+                                    onChange={e => setGlobalSettings({ ...globalSettings, call_guide: e.target.value })}
+                                ></textarea>
+                            </div>
+                            <button 
+                                onClick={handleUpdateGlobalGuide}
+                                className="w-full py-4 bg-[#1e3a8a] hover:bg-[#1e40af] text-white rounded-2xl font-black shadow-lg transition-all active:scale-[0.98]"
+                            >
+                                전체 적용 및 저장하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

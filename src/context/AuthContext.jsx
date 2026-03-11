@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db, googleProvider } from '../firebase';
+import { auth, googleProvider } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, updateDoc, query, where, limit } from 'firebase/firestore';
+import { supabase } from '../supabase';
 
-// Roles: 'SUPER_ADMIN', 'ADMIN', 'VOLUNTEER', 'UNAUTHORIZED'
+// Roles: 'DEVELOPER', 'ADMIN', 'VOLUNTEER', 'UNAUTHORIZED'
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
@@ -11,23 +11,7 @@ export const AuthProvider = ({ children }) => {
     const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Initial setup: ensure mock users exist in Firestore for backward compatibility/testing
-    useEffect(() => {
-        const initializeMockUsers = async () => {
-            const initialUsers = [
-                { id: 'u4', email: 'wangjaelee@gmail.com', name: '이왕재', role: 'ADMIN' },
-            ];
-            
-            for (const u of initialUsers) {
-                const userRef = doc(db, 'users', u.id);
-                const docSnap = await getDoc(userRef);
-                if (!docSnap.exists()) {
-                    await setDoc(userRef, u);
-                }
-            }
-        };
-        initializeMockUsers();
-    }, []);
+    // Initial setup: No longer needed for mock users as we moved to Supabase
 
     // Listen to Auth State
     useEffect(() => {
@@ -39,74 +23,59 @@ export const AuthProvider = ({ children }) => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             try {
                 if (firebaseUser) {
-                    // User is authenticated in Firebase
-                    const userRef = doc(db, 'users', firebaseUser.uid);
-                    const userDoc = await getDoc(userRef);
+                    // Check user in Supabase
+                    const { data: userData, error: fetchError } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('id', firebaseUser.uid)
+                        .single();
                     
-                    if (userDoc.exists()) {
-                        let userData = userDoc.data();
+                    if (fetchError && fetchError.code !== 'PGRST116') {
+                        console.error("Supabase fetch user error:", fetchError);
+                    }
+
+                    if (userData) {
+                        let currentRole = userData.role;
                         
-                        // 관리자 긴급 복구: 지정된 이메일은 승격 (이미 권한이 있으면 존중)
-                        try {
-                            if (userData.email === 'wangjaelee@gmail.com' && (!userData.role || userData.role === 'UNAUTHORIZED')) {
-                                userData.role = 'ADMIN';
-                                await updateDoc(userRef, { role: 'ADMIN' });
+                        // Emergency Role Recovery (Implicit)
+                        if ((firebaseUser.email === 'wangjaelee@gmail.com' || firebaseUser.email === 'soomin8454@gmail.com') && 
+                            (!currentRole || currentRole === 'UNAUTHORIZED')) {
+                            const newRole = firebaseUser.email === 'wangjaelee@gmail.com' ? 'ADMIN' : 'DEVELOPER';
+                            const { error: updErr } = await supabase
+                                .from('users')
+                                .update({ role: newRole })
+                                .eq('id', firebaseUser.uid);
+                            
+                            if (!updErr) {
+                                currentRole = newRole;
                             }
-                            if (userData.email === 'soomin8454@gmail.com' && (!userData.role || userData.role === 'UNAUTHORIZED')) {
-                                userData.role = 'DEVELOPER';
-                                await updateDoc(userRef, { role: 'DEVELOPER' });
-                            }
-                        } catch (err) {
-                            console.warn("Emergency role update failed, proceeding with local memory.", err);
                         }
                         
-                        setUser({ id: firebaseUser.uid, ...userData });
+                        setUser({ id: firebaseUser.uid, ...userData, role: currentRole });
                     } else {
-                        // Check if they are matched to a mock user by email (transitional phase)
-                        try {
-                            const usersRef = collection(db, 'users');
-                            const q = query(usersRef, where('email', '==', firebaseUser.email), limit(1));
-                            const usersSnap = await getDocs(q);
-                            let existingUser = null;
-                            
-                            if (!usersSnap.empty) {
-                                const doc = usersSnap.docs[0];
-                                existingUser = { id: doc.id, ...doc.data() };
-                            }
+                        // Create user in Supabase
+                        let assignedRole = 'UNAUTHORIZED';
+                        if (firebaseUser.email === 'wangjaelee@gmail.com') {
+                            assignedRole = 'ADMIN';
+                        } else if (firebaseUser.email === 'soomin8454@gmail.com') {
+                            assignedRole = 'DEVELOPER';
+                        }
 
-                            if (existingUser) {
-                                let assignedRole = existingUser.role;
-                                if (firebaseUser.email === 'wangjaelee@gmail.com') {
-                                    assignedRole = 'ADMIN';
-                                } else if (firebaseUser.email === 'soomin8454@gmail.com') {
-                                    assignedRole = 'DEVELOPER';
-                                }
-                                
-                                await setDoc(doc(db, 'users', firebaseUser.uid), {
-                                    email: firebaseUser.email,
-                                    name: firebaseUser.displayName || '이름 없음',
-                                    role: assignedRole
-                                });
-                                setUser({ id: firebaseUser.uid, email: firebaseUser.email, name: firebaseUser.displayName, role: assignedRole });
-                            } else {
-                                // Brand new user
-                                let assignedRole = 'UNAUTHORIZED';
-                                if (firebaseUser.email === 'wangjaelee@gmail.com') {
-                                    assignedRole = 'ADMIN';
-                                } else if (firebaseUser.email === 'soomin8454@gmail.com') {
-                                    assignedRole = 'DEVELOPER';
-                                }
+                        const newUser = {
+                            id: firebaseUser.uid,
+                            email: firebaseUser.email,
+                            name: firebaseUser.displayName || '이름 없음',
+                            role: assignedRole
+                        };
 
-                                const newUser = {
-                                    email: firebaseUser.email,
-                                    name: firebaseUser.displayName || '이름 없음',
-                                    role: assignedRole
-                                };
-                                await setDoc(userRef, newUser);
-                                setUser({ id: firebaseUser.uid, ...newUser });
-                            }
-                        } catch (e) {
-                            console.error("User document creation failed", e);
+                        const { error: insErr } = await supabase
+                            .from('users')
+                            .insert([newUser]);
+
+                        if (!insErr) {
+                            setUser(newUser);
+                        } else {
+                            console.error("Supabase user creation failed", insErr);
                         }
                     }
                 } else {
@@ -126,60 +95,64 @@ export const AuthProvider = ({ children }) => {
         };
     }, []);
 
-    // Listen to all users if Admin or Developer
+    // Sync all users and handle real-time updates (Supabase)
     useEffect(() => {
-        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return;
-        
-        const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
-            const usersList = [];
-            snapshot.forEach((doc) => {
-                usersList.push({ id: doc.id, ...doc.data() });
-            });
-            setAllUsers(usersList);
-        });
+        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) {
+            setAllUsers([]);
+            return;
+        }
 
-        return () => unsubscribe();
-    }, [user?.role]);
+        const fetchUsers = async () => {
+            const { data, error } = await supabase.from('users').select('*');
+            if (!error) setAllUsers(data || []);
+        };
 
-    // Keep the current user object totally in sync (e.g. if an admin changes my role)
-    useEffect(() => {
-        if (!user) return;
-        const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
-            if (docSnap.exists() && docSnap.data().role !== user.role) {
-                setUser(prev => ({ ...prev, role: docSnap.data().role }));
-            }
-        });
-        return () => unsubscribe();
-    }, [user?.id]);
+        fetchUsers();
 
+        const channel = supabase
+            .channel('public:users')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    setAllUsers(prev => [...prev, payload.new]);
+                } else if (payload.eventType === 'UPDATE') {
+                    setAllUsers(prev => prev.map(u => u.id === payload.new.id ? payload.new : u));
+                    // If current logged in user's role changed, update their local state
+                    if (payload.new.id === user.id) {
+                        setUser(prev => ({ ...prev, role: payload.new.role }));
+                    }
+                } else if (payload.eventType === 'DELETE') {
+                    setAllUsers(prev => prev.filter(u => u.id === payload.old.id));
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user?.id, user?.role]);
 
     const login = async () => {
         try {
-            // 인앱 브라우저(카카오톡, 네이버, 인스타그램 등) 체크
             const userAgent = navigator.userAgent || navigator.vendor || window.opera;
             const isKakao = /KAKAOTALK/i.test(userAgent);
             const isInApp = /Instagram|NAVER|Line|Daum|MicroMessenger/i.test(userAgent);
             
             if (isKakao) {
-                // 카카오톡 외부 브라우저(사파리/크롬)로 자동 실행
-                // 현재 URL을 그대로 전달
                 window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(window.location.href)}`;
-                throw new Error("REDIRECTING_TO_EXTERNAL_BROWSER"); // UI 처리를 위해 에러 throw
+                throw new Error("REDIRECTING_TO_EXTERNAL_BROWSER");
             } else if (isInApp) {
                 alert("앱 내부 브라우저에서는 구글 보안 정책상 로그인이 차단됩니다.\n현재 화면의 링크 주소를 복사하신 후, 인터넷 브라우저(크롬, 사파리, 삼성 인터넷 등) 주소창에 붙여넣어 접속해주세요.");
-                
-                // 안드로이드의 경우 크롬 강제 실행 시도
                 if (/android/i.test(userAgent)) {
                     const url = window.location.href.replace(/^https?:\/\//i, '');
                     window.location.href = `intent://${url}#Intent;scheme=https;package=com.android.chrome;end`;
                 }
-                throw new Error("IN_APP_BROWSER"); // UI 처리를 위해 에러 throw
+                throw new Error("IN_APP_BROWSER");
             }
 
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
             console.error("Login failed", error);
-            throw error; // Let the UI handle it so it doesn't redirect
+            throw error;
         }
     };
 
@@ -187,20 +160,20 @@ export const AuthProvider = ({ children }) => {
         await signOut(auth);
     };
 
-    // Admin function: Update user role
     const updateUserRole = async (userId, newRole) => {
-        if (user.role !== 'ADMIN' && user.role !== 'DEVELOPER') return;
+        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return;
         
         try {
-            await updateDoc(doc(db, 'users', userId), { role: newRole });
+            const { error } = await supabase
+                .from('users')
+                .update({ role: newRole })
+                .eq('id', userId);
+            
+            if (error) throw error;
         } catch (error) {
             console.error("Failed to update role", error);
+            throw error;
         }
-    };
-
-    // Admin function: Get all users
-    const getAllUsers = () => {
-        return allUsers;
     };
 
     const value = {
@@ -210,7 +183,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!user,
         role: user?.role || null,
         updateUserRole,
-        getAllUsers,
+        allUsers,
         loading
     };
 

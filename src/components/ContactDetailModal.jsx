@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useCampaign } from '../context/CampaignContext';
-import { Phone, User, Calendar, MapPin, Tag, FileText, X, Plus, Heart, Edit2, Save } from 'lucide-react';
+import { Phone, User, Calendar, MapPin, Tag, FileText, X, Plus, Heart, Edit2, Save, MessageSquare } from 'lucide-react';
+import { supabase } from '../supabase';
 
 export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
     const { updateContact } = useCampaign();
     const [newRecord, setNewRecord] = useState('');
     const [supportLevel, setSupportLevel] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [isEditingGuide, setIsEditingGuide] = useState(false);
+    const [guideText, setGuideText] = useState('');
+    const [globalGuide, setGlobalGuide] = useState('');
     
     // Edit Form State
     const [editForm, setEditForm] = useState({
@@ -18,8 +22,15 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
     });
 
     useEffect(() => {
+        const fetchGlobalGuide = async () => {
+            const { data } = await supabase.from('settings').select('*').eq('key', 'call_guide').single();
+            if (data) setGlobalGuide(data.value.text);
+        };
+        fetchGlobalGuide();
+
         if (contact) {
             setSupportLevel(contact.supportLevel || null);
+            setGuideText(contact.callGuide || '');
             setEditForm({
                 name: contact.name || '',
                 age: contact.age || '',
@@ -27,7 +38,8 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                 region: contact.region || '',
                 phone: contact.phone || ''
             });
-            setIsEditing(false); // Reset edit state when contact changes
+            setIsEditing(false);
+            setIsEditingGuide(false);
         }
     }, [contact]);
 
@@ -71,6 +83,11 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
             phone: editForm.phone
         });
         setIsEditing(false);
+    };
+
+    const handleSaveGuide = () => {
+        updateContact(contact.id, { callGuide: guideText });
+        setIsEditingGuide(false);
     };
 
     return (
@@ -181,13 +198,37 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
 
                     {/* Add New Record */}
                     <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col gap-4">
-                        <h4 className="text-[14px] font-extrabold text-[#1e3a8a]">새 통화내용 기록 추가</h4>
+                        <div className="flex justify-between items-center">
+                            <h4 className="text-[14px] font-extrabold text-[#1e3a8a]">새 통화내용 기록 추가</h4>
+                            <button 
+                                onClick={() => isEditingGuide ? handleSaveGuide() : setIsEditingGuide(true)}
+                                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-black transition-all ${
+                                    isEditingGuide 
+                                    ? 'bg-green-500 text-white shadow-sm' 
+                                    : 'text-[#1e3a8a] bg-blue-50 border border-blue-100 hover:bg-blue-100'
+                                }`}
+                            >
+                                {isEditingGuide ? <><Save size={12}/> 안내문구 저장</> : <><Edit2 size={12}/> 안내문구 수정</>}
+                            </button>
+                        </div>
                         
                         {/* 멘트 스크립트 박스 */}
-                        <div className="bg-[#1e3a8a]/5 p-3 rounded-xl border border-[#1e3a8a]/20">
-                            <p className="text-[13px] font-bold text-[#1e3a8a] leading-relaxed">
-                                "안녕하세요! 바쁘신 중에 전화 받아주셔서 감사합니다. 저는 강진군 발전을 위해 뛰고 있는 김보미 후보 선거캠프에서 연락드렸습니다. 이번 선거에서 저희 김보미 후보를 응원해주실 마음이 있으신지 조심스럽게 고견을 여쭙고 싶습니다."
-                            </p>
+                        <div className={`p-3 rounded-xl border transition-all ${isEditingGuide ? 'bg-slate-50 border-blue-300 ring-2 ring-blue-100' : 'bg-[#1e3a8a]/5 border-[#1e3a8a]/20'}`}>
+                            {isEditingGuide ? (
+                                <textarea 
+                                    className="w-full bg-transparent outline-none text-[13px] font-bold text-slate-700 leading-relaxed min-h-[80px] resize-none"
+                                    value={guideText || globalGuide}
+                                    onChange={(e) => setGuideText(e.target.value)}
+                                    placeholder="개별 안내문구를 입력하세요..."
+                                />
+                            ) : (
+                                <p className="text-[13px] font-bold text-[#1e3a8a] leading-relaxed">
+                                    "{guideText || globalGuide || '안내문구가 설정되지 않았습니다.'}"
+                                </p>
+                            )}
+                            {isEditingGuide && (
+                                <p className="text-[10px] text-slate-400 font-bold mt-2">* 이 연락처에만 적용되는 특별 안내문구입니다.</p>
+                            )}
                         </div>
 
                         {/* 성향 선택 버튼 */}
