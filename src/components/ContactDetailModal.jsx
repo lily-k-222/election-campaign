@@ -5,7 +5,7 @@ import { Phone, User, Calendar, MapPin, Tag, FileText, X, Plus, Heart, Edit2, Sa
 export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
     const { updateContact } = useCampaign();
     const [newRecord, setNewRecord] = useState('');
-    const [supportLevel, setSupportLevel] = useState('관심없음');
+    const [supportLevel, setSupportLevel] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     
     // Edit Form State
@@ -19,7 +19,7 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
 
     useEffect(() => {
         if (contact) {
-            setSupportLevel(contact.supportLevel || '관심없음');
+            setSupportLevel(contact.supportLevel || null);
             setEditForm({
                 name: contact.name || '',
                 age: contact.age || '',
@@ -42,7 +42,8 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
         const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         
         const recordText = newRecord.trim() ? `${newRecord.trim()}\n` : '';
-        const recordEntry = `[${dateString}] ${recordText}(성향: ${supportLevel})`;
+        const supportText = supportLevel ? `(성향: ${supportLevel})` : '(성향: 미확인)';
+        const recordEntry = `[${dateString}] ${recordText}${supportText}`;
         
         let previousNotes = contact.notes;
         // Ignore the default test note when appending a real record

@@ -16,7 +16,7 @@ const mapContact = (c) => {
         jobTitle: c.job_title || '',
         memberType: c.member_type || '',
         status: c.status || 'UNASSIGNED',
-        supportLevel: c.support_level || '관심없음',
+        supportLevel: c.support_level || null,
         surveyResult: c.survey_result || null,
         notes: c.notes || '',
         assignedTo: c.assigned_to
