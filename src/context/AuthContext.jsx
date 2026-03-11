@@ -169,10 +169,14 @@ export const AuthProvider = ({ children }) => {
                 .update({ role: newRole })
                 .eq('id', userId);
             
-            if (error) throw error;
+            if (error) {
+                console.error("Supabase update error:", error);
+                return { success: false, error };
+            }
+            return { success: true };
         } catch (error) {
             console.error("Failed to update role", error);
-            throw error;
+            return { success: false, error };
         }
     };
 

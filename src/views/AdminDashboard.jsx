@@ -208,8 +208,14 @@ export const AdminDashboard = () => {
     };
 
     const handleRoleUpdate = (userId, name, newRole) => {
-        showDialog('confirm', '권한 변경', `${name} 회원의 권한을 변경하시겠습니까?`, () => {
-            updateUserRole(userId, newRole);
+        showDialog('confirm', '권한 변경', `${name} 회원의 권한을 변경하시겠습니까?`, async () => {
+            const result = await updateUserRole(userId, newRole);
+            if (result && result.success) {
+                showDialog('alert', '권한 변경 완료', `${name} 회원의 권한이 ${newRole}으로 변경되었습니다.`);
+            } else {
+                const errMsg = result?.error?.message || '알 수 없는 오류가 발생했습니다.';
+                showDialog('alert', '권한 변경 실패', `오류: ${errMsg}`);
+            }
         });
     };
 
