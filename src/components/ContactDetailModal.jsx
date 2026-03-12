@@ -240,7 +240,7 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                                         key={option}
                                         onClick={() => {
                                             setSupportLevel(option);
-                                            updateContact(contact.id, { supportLevel: option });
+                                            updateContact(contact.id, { supportLevel: option, status: 'CALLED' });
                                         }}
                                         className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors border ${
                                             supportLevel === option 
