@@ -994,16 +994,12 @@ export const AdminDashboard = () => {
                                                                 ) : (
                                                                     <div className="flex justify-end gap-1.5 p-1 bg-slate-100 rounded-2xl w-max ml-auto shadow-inner border border-slate-200/60">
                                                                         <button 
-                                                                            onClick={() => handleRoleUpdate(user.id, user.name, 'ADMIN')}
-                                                                            className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'ADMIN' ? 'bg-white text-[#1e3a8a] shadow-sm border border-slate-200/80 scale-100' : 'text-slate-500 hover:text-slate-800 scale-95 hover:bg-slate-200/50'}`}
-                                                                        >관리자</button>
-                                                                        <button 
                                                                             onClick={() => handleRoleUpdate(user.id, user.name, 'VOLUNTEER')}
                                                                             className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'VOLUNTEER' ? 'bg-[#1e3a8a] text-white shadow-sm scale-100' : 'text-slate-500 hover:text-slate-800 scale-95 hover:bg-slate-200/50'}`}
                                                                         >자원봉사자</button>
                                                                         <button 
-                                                                            onClick={() => handleRoleUpdate(user.id, user.name, 'UNAUTHORIZED')}
-                                                                            className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'UNAUTHORIZED' ? 'bg-red-500 text-white shadow-sm scale-100' : 'text-slate-500 hover:text-red-500 scale-95 hover:bg-red-50'}`}
+                                                                            onClick={() => handleRoleUpdate(user.id, user.name, 'REJECTED')}
+                                                                            className="px-3 py-1.5 text-[13px] font-extrabold rounded-xl text-slate-500 hover:text-red-600 scale-95 hover:bg-red-50 transition-all"
                                                                         >권한 해제</button>
                                                                     </div>
                                                                 )}

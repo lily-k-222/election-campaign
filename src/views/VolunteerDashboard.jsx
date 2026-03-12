@@ -73,7 +73,23 @@ export const VolunteerDashboard = () => {
         console.log('VolunteerDashboard: handleCallFailedDirect', updateData);
         await updateContact(contact.id, updateData);
         setVolunteerContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...updateData } : c));
-        alert(`${contact.name}님이 통화 실패로 기록되었습니다.`);
+    };
+
+    const handleCallSuccessDirect = async (contact) => {
+        const now = new Date();
+        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        const recordEntry = `[${dateString}] 통화 완료 (간편 기록)`;
+        const finalNotes = contact.notes ? `${contact.notes}\n${recordEntry}` : recordEntry;
+
+        const updateData = { 
+            notes: finalNotes, 
+            status: 'CALLED'
+        };
+
+        console.log('VolunteerDashboard: handleCallSuccessDirect', updateData);
+        await updateContact(contact.id, updateData);
+        setVolunteerContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...updateData } : c));
     };
 
     const stats = targetUserId ? getVolunteerStats(targetUserId) : { progress: 0, total: 0, completed: 0 };
@@ -399,19 +415,28 @@ export const VolunteerDashboard = () => {
                                             )}
                                         </div>
                                         
-                                        {/* View Detail Button */}
-                                        <button 
-                                            onClick={() => openContactDetail(contact)}
-                                            className="px-3.5 py-2 bg-[#1e3a8a] text-white hover:bg-[#1e40af] text-[12px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-[#1e3a8a]"
-                                        >
-                                            <Phone size={14} className="animate-pulse" /> 전화 걸기
-                                        </button>
-                                        <button 
-                                            onClick={() => handleCallFailedDirect(contact)}
-                                            className="px-3.5 py-2 bg-amber-500 text-white hover:bg-amber-600 text-[12px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-amber-400"
-                                        >
-                                            <PhoneOff size={14} /> 통화 실패
-                                        </button>
+                                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                                            <button 
+                                                onClick={() => openContactDetail(contact)}
+                                                className="px-5 py-2.5 bg-[#1e3a8a] text-white hover:bg-[#1e40af] text-[14px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-[#1e3a8a]"
+                                            >
+                                                <Phone size={15} className="animate-pulse" /> 전화 걸기
+                                            </button>
+                                            
+                                            <button 
+                                                onClick={() => handleCallFailedDirect(contact)}
+                                                className="px-2.5 py-1.5 bg-amber-500 text-white hover:bg-amber-600 text-[11px] font-black rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1 shrink-0 border border-amber-400"
+                                            >
+                                                <PhoneOff size={13} /> 통화실패
+                                            </button>
+                                            
+                                            <button 
+                                                onClick={() => handleCallSuccessDirect(contact)}
+                                                className="px-2.5 py-1.5 bg-green-500 text-white hover:bg-green-600 text-[11px] font-black rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1 shrink-0 border border-green-400"
+                                            >
+                                                <CheckCircle2 size={13} /> 통화완료
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))
