@@ -705,7 +705,7 @@ export const AdminDashboard = () => {
                                                     <td className="p-3 font-semibold text-gray-800">{vStats.completed}</td>
                                                     <td className="p-3">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-[13px] font-bold text-gray-700 w-7">{vStats.progress}%</span>
+                                                            <span className="text-[13px] font-bold text-gray-700 w-[55px] shrink-0">{vStats.progress}%</span>
                                                             <div className="flex-1 h-[6px] bg-gray-200 rounded-full overflow-hidden mr-2">
                                                                 <div className="h-full bg-[#1e3a8a] rounded-full" style={{ width: `${Math.max(10, vStats.progress)}%` }}></div>
                                                             </div>

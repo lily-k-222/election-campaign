@@ -245,7 +245,7 @@ export const VolunteerDashboard = () => {
                     ) : (
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center border-4 border-[#1e3a8a] relative shrink-0">
-                                <span className="text-lg font-black text-[#1e3a8a]">{displayStats.progress}%</span>
+                                <span className="text-[13px] font-black text-[#1e3a8a]">{displayStats.progress}%</span>
                             </div>
                             <div className="flex-1">
                                 <div className="flex justify-between text-[14px] font-bold text-slate-600 mb-2">
