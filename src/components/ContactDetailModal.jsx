@@ -161,24 +161,24 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                     <div className="flex items-center gap-2">
                         {isEditing ? (
                             <button onClick={handleSaveEdit} className="flex items-center gap-1 bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-xl text-xs font-black transition-all shadow-md active:scale-95">
-                                <Save size={16} /> 수정 완료
+                                <Save size={16} /> 완료
                             </button>
                         ) : (
                             <>
-                                <button onClick={() => setIsEditing(true)} className="flex items-center gap-1 bg-white/20 hover:bg-white/30 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors">
-                                    <Edit2 size={14} /> 정보 수정
+                                <button onClick={() => setIsEditing(true)} className="flex items-center gap-1 bg-white/20 hover:bg-white/30 px-2 pl-1.5 pr-2 py-1.5 rounded-lg text-[11px] font-bold transition-colors">
+                                    <Edit2 size={13} /> 수정
                                 </button>
                                 <button 
                                     onClick={handleSaveAll}
-                                    className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 px-3 py-1.5 rounded-xl text-[11px] sm:text-[12px] font-black transition-all shadow-md text-white border border-slate-600 active:scale-95"
+                                    className="flex items-center gap-1 bg-slate-800 hover:bg-slate-900 px-2 py-1.5 rounded-xl text-[11px] sm:text-[12px] font-black transition-all shadow-md text-white border border-slate-600 active:scale-95"
                                 >
-                                    <Save size={14} className="sm:w-[15px] sm:h-[15px]" /> 기록 저장
+                                    <Save size={14} /> 저장
                                 </button>
                                 <button 
                                     onClick={handleCallFailed}
-                                    className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-xl text-[11px] sm:text-[12px] font-black transition-all shadow-md text-white border border-amber-400 active:scale-95"
+                                    className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 px-2 py-1.5 rounded-xl text-[11px] sm:text-[12px] font-black transition-all shadow-md text-white border border-amber-400 active:scale-95"
                                 >
-                                    <PhoneOff size={14} className="sm:w-[15px] sm:h-[15px]" /> 통화 실패
+                                    <PhoneOff size={14} /> 통화실패
                                 </button>
                             </>
                         )}
