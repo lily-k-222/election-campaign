@@ -402,15 +402,15 @@ export const VolunteerDashboard = () => {
                                         {/* View Detail Button */}
                                         <button 
                                             onClick={() => openContactDetail(contact)}
-                                            className="px-4 py-2.5 bg-[#1e3a8a] text-white hover:bg-[#1e40af] text-[13px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-[#1e3a8a]"
+                                            className="px-3.5 py-2 bg-[#1e3a8a] text-white hover:bg-[#1e40af] text-[12px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-[#1e3a8a]"
                                         >
-                                            <Phone size={15} className="animate-pulse" /> 전화 걸기
+                                            <Phone size={14} className="animate-pulse" /> 전화 걸기
                                         </button>
                                         <button 
                                             onClick={() => handleCallFailedDirect(contact)}
-                                            className="px-4 py-2.5 bg-red-500 text-white hover:bg-red-600 text-[13px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-red-400"
+                                            className="px-3.5 py-2 bg-amber-500 text-white hover:bg-amber-600 text-[12px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-amber-400"
                                         >
-                                            <PhoneOff size={15} /> 통화 실패
+                                            <PhoneOff size={14} /> 통화 실패
                                         </button>
                                     </div>
                                 </div>
