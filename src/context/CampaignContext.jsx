@@ -125,6 +125,9 @@ export const CampaignProvider = ({ children }) => {
                     query = query.eq('assigned_to', filters.volunteerId);
                 }
             }
+            if (filters.supportLevel && filters.supportLevel !== 'ALL') {
+                query = query.eq('support_level', filters.supportLevel);
+            }
 
             // Search
             if (search) {

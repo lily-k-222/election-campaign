@@ -7,7 +7,7 @@ import { Badge } from '../components/Badge';
 import { ContactFormModal } from '../components/ContactFormModal';
 import { ContactDetailModal } from '../components/ContactDetailModal';
 import { DialogModal } from '../components/DialogModal';
-import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList, Edit2, Save, X, Download } from 'lucide-react';
+import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList, Edit2, Save, X, Download, ArrowLeft, ChevronRight } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 
 export const AdminDashboard = () => {
@@ -61,6 +61,7 @@ export const AdminDashboard = () => {
     const [contactSearchTerm, setContactSearchTerm] = useState('');
     const [volunteerFilter, setVolunteerFilter] = useState('ALL');
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [supportLevelFilter, setSupportLevelFilter] = useState('ALL');
     const [contactPage, setContactPage] = useState(1);
     const contactsPerPage = 50;
     const [isDataLoading, setIsDataLoading] = useState(false);
@@ -136,14 +137,15 @@ export const AdminDashboard = () => {
     };
 
     const loadContacts = async () => {
-        if (activeTab === 'contacts') {
+        if (activeTab === 'contacts' || activeTab === 'result_detail') {
             setIsDataLoading(true);
             const result = await fetchContactsPaginated({ 
                 page: contactPage, 
                 pageSize: contactsPerPage, 
                 filters: { 
-                    volunteerId: volunteerFilter,
-                    status: statusFilter
+                    volunteerId: activeTab === 'contacts' ? volunteerFilter : 'ALL',
+                    status: activeTab === 'contacts' ? statusFilter : 'CALLED',
+                    supportLevel: activeTab === 'result_detail' ? supportLevelFilter : 'ALL'
                 },
                 search: contactSearchTerm 
             });
@@ -156,7 +158,7 @@ export const AdminDashboard = () => {
     // Paginated Fetch Effect
     React.useEffect(() => {
         loadContacts();
-    }, [activeTab, contactPage, contactSearchTerm, volunteerFilter, statusFilter]);
+    }, [activeTab, contactPage, contactSearchTerm, volunteerFilter, statusFilter, supportLevelFilter]);
 
     const showDialog = (type, title, message, onConfirm = null) => {
         setDialogConfig({ isOpen: true, type, title, message, onConfirm });
@@ -566,6 +568,17 @@ export const AdminDashboard = () => {
                                             </div>
                                         </div>
                                         <span className="text-[14px] font-bold text-gray-800 w-8 text-right">{item.value}</span>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSupportLevelFilter(item.label.split('. ')[1]); // Get just the label text
+                                                setActiveTab('result_detail');
+                                                setContactPage(1);
+                                            }}
+                                            className="ml-2 text-[11px] font-bold text-[#1e3a8a] bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors"
+                                        >
+                                            조회
+                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -820,6 +833,102 @@ export const AdminDashboard = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'result_detail' && (
+                            <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 flex flex-col">
+                                <div className="flex justify-between items-center mb-6">
+                                    <div className="flex items-center gap-4">
+                                        <button 
+                                            onClick={() => setActiveTab('campaign')}
+                                            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+                                        >
+                                            <ArrowLeft size={20} />
+                                        </button>
+                                        <h2 className="text-[20px] font-extrabold text-slate-800 flex items-center gap-3 border-l-4 border-[#1e3a8a] pl-3 tracking-tight">
+                                            결과 상세: <span className="text-[#1e3a8a]">{supportLevelFilter}</span>
+                                        </h2>
+                                    </div>
+                                    <button 
+                                        onClick={handleExportToExcel}
+                                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white text-[14px] font-extrabold rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2"
+                                    >
+                                        <Download size={16} />
+                                        결과 엑셀 다운로드
+                                    </button>
+                                </div>
+
+                                <div className="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm mb-6">
+                                    <table className="w-full text-left text-sm whitespace-nowrap">
+                                        <thead className="bg-[#f8fafc] text-gray-600 font-bold border-b border-gray-100">
+                                            <tr>
+                                                <th className="p-4 pl-5">이름</th>
+                                                <th className="p-4">전화번호</th>
+                                                <th className="p-4">성향</th>
+                                                <th className="p-4">담당자</th>
+                                                <th className="p-4 text-right pr-5">작업</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {isDataLoading ? (
+                                                <tr><td colSpan="5" className="p-16 text-center text-gray-400 font-bold">데이터를 불러오는 중입니다...</td></tr>
+                                            ) : contactData.length === 0 ? (
+                                                <tr><td colSpan="5" className="p-16 text-center text-gray-500 font-medium">조회된 명단이 없습니다.</td></tr>
+                                            ) : (
+                                                contactData.map(contact => (
+                                                    <tr key={contact.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                                                        <td className="p-4 pl-5 font-bold text-gray-800">{contact.name}</td>
+                                                        <td className="p-4 font-mono text-gray-600">{contact.phone}</td>
+                                                        <td className="p-4">
+                                                            <span className="font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-md text-[12px]">{contact.supportLevel}</span>
+                                                        </td>
+                                                        <td className="p-4 text-gray-600 font-medium">
+                                                            {users.find(u => u.id === contact.assignedTo)?.name || '-'}
+                                                        </td>
+                                                        <td className="p-4 pr-5 text-right">
+                                                            <button 
+                                                                onClick={() => {
+                                                                    setViewingContact(contact);
+                                                                    setIsDetailModalOpen(true);
+                                                                }}
+                                                                className="px-3 py-1.5 text-xs font-bold text-[#1e3a8a] bg-white border border-blue-200 rounded hover:bg-blue-50"
+                                                            >
+                                                                상세보기
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                {/* Pagination (Reused logic) */}
+                                {!isDataLoading && totalContacts > 0 && (
+                                    <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-100 shadow-inner">
+                                        <div className="text-sm text-gray-500 font-bold">
+                                            전체 <span className="text-[#1e3a8a]">{totalContacts}</span>명 중 {(contactPage - 1) * contactsPerPage + 1} - {Math.min(contactPage * contactsPerPage, totalContacts)} 표시
+                                        </div>
+                                        <div className="flex bg-gray-200/50 rounded-lg p-1 items-center gap-2">
+                                            <button 
+                                                onClick={() => setContactPage(p => Math.max(1, p - 1))}
+                                                disabled={contactPage === 1}
+                                                className="px-4 py-2 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 hover:bg-gray-50 flex items-center gap-1"
+                                            >
+                                                이전
+                                            </button>
+                                            <span className="px-4 font-bold text-[13px] text-gray-600">{contactPage} / {Math.ceil(totalContacts / contactsPerPage)}</span>
+                                            <button 
+                                                onClick={() => setContactPage(p => p + 1)}
+                                                disabled={contactPage >= Math.ceil(totalContacts / contactsPerPage)}
+                                                className="px-4 py-2 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 hover:bg-gray-50 flex items-center gap-1"
+                                            >
+                                                다음
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                         
