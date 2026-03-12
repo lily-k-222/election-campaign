@@ -61,6 +61,8 @@ export const AdminDashboard = () => {
     const [contactSearchTerm, setContactSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('agent'); // 'agent', 'status', 'support'
     const [volunteerFilter, setVolunteerFilter] = useState('ALL');
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [supportLevelFilter, setSupportLevelFilter] = useState('ALL');
     const [contactPage, setContactPage] = useState(1);
     const contactsPerPage = 50;
     const [isDataLoading, setIsDataLoading] = useState(false);
@@ -80,32 +82,13 @@ export const AdminDashboard = () => {
     const [isStatsLoading, setIsStatsLoading] = useState(false);
     const [statsError, setStatsError] = useState(null);
 
-    // Initial Stats Load
-    // Initial Stats Load & Real-time Subscription for Dashboard
-    React.useEffect(() => {
-        if (activeTab === 'campaign' || activeTab === 'users' || activeTab === 'volunteers') {
-            loadStats();
-        }
-
-        if (activeTab === 'campaign') {
-            // Subscribe to all changes on contacts table to refresh stats in real-time
-            const channel = supabase
-                .channel('admin-stats-monitor')
-                .on('postgres_changes', { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'contacts' 
-                }, () => {
-                    console.log('Real-time: Contact change detected, reloading stats');
-                    loadStats();
-                })
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
-        }
-    }, [activeTab, loadStats]);
+    const showDialog = (type, title, message, onConfirm = null) => {
+        setDialogConfig({ isOpen: true, type, title, message, onConfirm });
+    };
+    
+    const closeDialog = () => {
+        setDialogConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     const loadStats = React.useCallback(async () => {
         setIsStatsLoading(true);
@@ -167,18 +150,36 @@ export const AdminDashboard = () => {
         }
     };
 
+    // Initial Stats Load & Real-time Subscription for Dashboard
+    React.useEffect(() => {
+        if (activeTab === 'campaign' || activeTab === 'users' || activeTab === 'volunteers') {
+            loadStats();
+        }
+
+        if (activeTab === 'campaign') {
+            // Subscribe to all changes on contacts table to refresh stats in real-time
+            const channel = supabase
+                .channel('admin-stats-monitor')
+                .on('postgres_changes', { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'contacts' 
+                }, () => {
+                    console.log('Real-time: Contact change detected, reloading stats');
+                    loadStats();
+                })
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        }
+    }, [activeTab, loadStats]);
+
     // Paginated Fetch Effect
     React.useEffect(() => {
         loadContacts();
     }, [activeTab, contactPage, contactSearchTerm, volunteerFilter, statusFilter, supportLevelFilter]);
-
-    const showDialog = (type, title, message, onConfirm = null) => {
-        setDialogConfig({ isOpen: true, type, title, message, onConfirm });
-    };
-    
-    const closeDialog = () => {
-        setDialogConfig(prev => ({ ...prev, isOpen: false }));
-    };
 
     // Volunteers are users with VOLUNTEER role
     const volunteers = users.filter(u => u.role === 'VOLUNTEER');
