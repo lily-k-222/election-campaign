@@ -369,8 +369,8 @@ export const VolunteerDashboard = () => {
                             </div>
                         ) : (
                             displayContacts.map(contact => (
-                                <div key={contact.id} className="flex flex-col sm:flex-row items-start sm:items-center p-4 bg-white border border-slate-200 rounded-2xl hover:border-[#1e3a8a]/30 transition-all shadow-sm gap-4">
-                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div key={contact.id} className="flex flex-col sm:flex-row items-start sm:items-center p-4 bg-white border border-slate-200 rounded-2xl hover:border-[#1e3a8a]/30 transition-all shadow-sm gap-3 sm:gap-6">
+                                    <div className="flex items-center gap-3">
                                         <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 border shadow-sm transition-colors ${contact.status === 'CALLED' ? 'bg-green-50 border-green-200 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
                                             {contact.status === 'CALLED' ? (
                                                 <div className="flex flex-col items-center">
