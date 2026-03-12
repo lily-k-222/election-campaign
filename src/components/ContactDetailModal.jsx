@@ -49,41 +49,7 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
 
     const supportOptions = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
 
-    const handleSaveAll = () => {
-        const isContentEmpty = !newRecord.trim() && !supportLevel;
-
-        if (isContentEmpty) {
-            onClose();
-            return;
-        }
-
-        let updateData = { supportLevel, status: 'CALLED' };
-        
-        const now = new Date();
-        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        
-        const recordText = newRecord.trim() ? `${newRecord.trim()}\n` : '';
-        const supportText = supportLevel ? `(성향: ${supportLevel})` : '(성향: 미확인)';
-        const recordEntry = `[${dateString}] ${recordText}${supportText}`;
-        
-        let previousNotes = contact.notes;
-        if (previousNotes === '테스트용 데이터입니다.') {
-            previousNotes = '';
-        }
-        
-        updateData.notes = previousNotes 
-            ? `${previousNotes}\n${recordEntry}` 
-            : recordEntry;
-            
-        setNewRecord('');
-        
-        updateContact(contact.id, updateData);
-        if (onUpdate) onUpdate({ id: contact.id, ...updateData });
-        alert('저장되었습니다.');
-        onClose();
-    };
-
-    const handleSaveEdit = () => {
+    const handleSaveEdit = (callback) => {
         const isNotesEmpty = !editForm.notes.trim();
         const isSupportEmpty = !supportLevel;
 
@@ -94,13 +60,74 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
             region: editForm.region,
             phone: editForm.phone,
             notes: editForm.notes,
-            supportLevel: supportLevel, // Ensure this is included so it overwrites correctly
+            supportLevel: supportLevel,
             // If both notes and support level are empty, set status back to ASSIGNED
-            status: (isNotesEmpty && isSupportEmpty) ? 'ASSIGNED' : contact.status
+            status: (isNotesEmpty && isSupportEmpty) ? 'ASSIGNED' : 'CALLED'
         };
         updateContact(contact.id, updateData);
         if (onUpdate) onUpdate({ id: contact.id, ...updateData });
         setIsEditing(false);
+        if (callback && typeof callback === 'function') callback(updateData);
+    };
+
+    const handleSaveAll = () => {
+        // If we are in editing mode, handle basic info and potentially notes update first
+        if (isEditing) {
+            handleSaveEdit((updatedBasicInfo) => {
+                // After basic info save, check if there's also a new record to add
+                if (newRecord.trim()) {
+                    performRecordAddition(updatedBasicInfo.notes, updatedBasicInfo.supportLevel);
+                } else {
+                    alert('저장되었습니다.');
+                    onClose();
+                }
+            });
+        } else {
+            // Not in editing mode, just handle new record addition if any
+            if (!newRecord.trim() && supportLevel === contact.supportLevel) {
+                // Nothing changed except maybe deselecting? 
+                // Let's check if we need to revert status
+                const isNotesEmpty = !contact.notes || !contact.notes.trim();
+                if (isNotesEmpty && !supportLevel) {
+                    const updateData = { status: 'ASSIGNED', supportLevel: null };
+                    updateContact(contact.id, updateData);
+                    if (onUpdate) onUpdate({ id: contact.id, ...updateData });
+                }
+                onClose();
+                return;
+            }
+            performRecordAddition(contact.notes, supportLevel);
+        }
+    };
+
+    const performRecordAddition = (baseNotes, currentSupportLevel) => {
+        const now = new Date();
+        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        const recordText = newRecord.trim() ? `${newRecord.trim()}\n` : '';
+        const supportText = currentSupportLevel ? `(성향: ${currentSupportLevel})` : '(성향: 미확인)';
+        const recordEntry = `[${dateString}] ${recordText}${supportText}`;
+        
+        let previousNotes = baseNotes || '';
+        if (previousNotes === '테스트용 데이터입니다.') {
+            previousNotes = '';
+        }
+        
+        const finalNotes = previousNotes 
+            ? `${previousNotes}\n${recordEntry}` 
+            : recordEntry;
+            
+        const updateData = { 
+            notes: finalNotes, 
+            supportLevel: currentSupportLevel, 
+            status: 'CALLED' 
+        };
+        
+        setNewRecord('');
+        updateContact(contact.id, updateData);
+        if (onUpdate) onUpdate({ id: contact.id, ...updateData });
+        alert('저장되었습니다.');
+        onClose();
     };
 
     const handleSaveGuide = () => {
@@ -269,10 +296,13 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                                             const newLevel = supportLevel === option ? null : option;
                                             setSupportLevel(newLevel);
                                             
-                                            const isNotesEmpty = !contact.notes || !contact.notes.trim();
+                                            // Check notes from either editForm (if editing) or contact (if not)
+                                            const currentNotes = isEditing ? editForm.notes : contact.notes;
+                                            const isNotesEmpty = !currentNotes || !currentNotes.trim();
+                                            
                                             const updateData = { 
                                                 supportLevel: newLevel, 
-                                                status: (newLevel) ? 'CALLED' : (isNotesEmpty ? 'ASSIGNED' : contact.status)
+                                                status: (newLevel || !isNotesEmpty) ? 'CALLED' : 'ASSIGNED'
                                             };
                                             
                                             updateContact(contact.id, updateData);
