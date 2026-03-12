@@ -59,9 +59,8 @@ export const AdminDashboard = () => {
     const [contactData, setContactData] = useState([]);
     const [totalContacts, setTotalContacts] = useState(0);
     const [contactSearchTerm, setContactSearchTerm] = useState('');
+    const [filterCategory, setFilterCategory] = useState('agent'); // 'agent', 'status', 'support'
     const [volunteerFilter, setVolunteerFilter] = useState('ALL');
-    const [statusFilter, setStatusFilter] = useState('ALL');
-    const [supportLevelFilter, setSupportLevelFilter] = useState('ALL');
     const [contactPage, setContactPage] = useState(1);
     const contactsPerPage = 50;
     const [isDataLoading, setIsDataLoading] = useState(false);
@@ -97,6 +96,7 @@ export const AdminDashboard = () => {
                     schema: 'public', 
                     table: 'contacts' 
                 }, () => {
+                    console.log('Real-time: Contact change detected, reloading stats');
                     loadStats();
                 })
                 .subscribe();
@@ -105,12 +105,13 @@ export const AdminDashboard = () => {
                 supabase.removeChannel(channel);
             };
         }
-    }, [activeTab, !!users]);
+    }, [activeTab, loadStats]);
 
-    const loadStats = async () => {
+    const loadStats = React.useCallback(async () => {
         setIsStatsLoading(true);
         setStatsError(null);
         try {
+            console.log('AdminDashboard: Loading stats...');
             const s = await getCampaignStats();
             if (s.error) {
                 setStatsError(s.error);
@@ -125,6 +126,7 @@ export const AdminDashboard = () => {
                     .map(u => u.id);
                 if (vids.length > 0) {
                     const vStats = await fetchAllVolunteerStats(vids);
+                    console.log('AdminDashboard: Volunteer stats updated', vStats);
                     setVolunteerStatsMap(vStats);
                 }
             }
@@ -134,7 +136,7 @@ export const AdminDashboard = () => {
         } finally {
             setIsStatsLoading(false);
         }
-    };
+    }, [users, getCampaignStats, fetchAllVolunteerStats]);
 
     const handleLocalUpdate = (updatedContact) => {
         console.log('AdminDashboard: Local update received', updatedContact);
@@ -670,10 +672,16 @@ export const AdminDashboard = () => {
                             onClick={() => setActiveTab('volunteers')}
                             className="bg-white rounded-[24px] shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 p-7 flex flex-col cursor-pointer hover:bg-slate-50 relative"
                         >
-                            <div className="absolute top-4 right-4 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 opacity-80">
-                                명단 보기 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                            <div className="flex justify-between items-center mb-5">
+                                <h2 className="text-[20px] font-extrabold text-slate-800 tracking-tight whitespace-nowrap">자원봉사자별 현황 (TOP 3)</h2>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); loadStats(); }}
+                                    className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-[#1e3a8a]"
+                                    title="새로고침"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                                </button>
                             </div>
-                            <h2 className="text-[20px] font-extrabold mb-5 text-slate-800 tracking-tight">자원봉사자별 현황 (TOP 3)</h2>
                             <div className="overflow-x-auto flex-1 border border-gray-200 rounded-lg selection-table">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead className="bg-[#f0f4f8] text-gray-800 border-b border-gray-200">
@@ -705,7 +713,7 @@ export const AdminDashboard = () => {
                                                     <td className="p-3 font-semibold text-gray-800">{vStats.completed}</td>
                                                     <td className="p-3">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-[13px] font-bold text-gray-700 w-[55px] shrink-0">{vStats.progress}%</span>
+                                                            <span className="text-[12px] font-black text-slate-700 w-[58px] shrink-0 leading-none">{vStats.progress}%</span>
                                                             <div className="flex-1 h-[6px] bg-gray-200 rounded-full overflow-hidden mr-2">
                                                                 <div className="h-full bg-[#1e3a8a] rounded-full" style={{ width: `${Math.max(10, vStats.progress)}%` }}></div>
                                                             </div>
@@ -1050,54 +1058,75 @@ export const AdminDashboard = () => {
                                             }}
                                         />
                                     </div>
-                                    <div className="ml-auto flex items-center gap-2">
-                                        <span className="text-[13px] font-bold text-gray-500">담당자:</span>
-                                        <select
-                                            className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-lg outline-none text-[13px] font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-100"
-                                            value={volunteerFilter}
-                                            onChange={(e) => {
-                                                setVolunteerFilter(e.target.value);
-                                                setContactPage(1);
-                                            }}
-                                        >
-                                            <option value="ALL">전체 담당자</option>
-                                            <option value="UNASSIGNED">미할당 연락처</option>
-                                            {volunteers.map(v => (
-                                                <option key={v.id} value={v.id}>{v.name}</option>
+                                    <div className="ml-auto flex items-center gap-3">
+                                        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
+                                            {[
+                                                { id: 'agent', label: '담당자' },
+                                                { id: 'status', label: '상태' },
+                                                { id: 'support', label: '성향' }
+                                            ].map(cat => (
+                                                <button
+                                                    key={cat.id}
+                                                    onClick={() => setFilterCategory(cat.id)}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${filterCategory === cat.id ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                                >
+                                                    {cat.label}
+                                                </button>
                                             ))}
-                                        </select>
-                                        
-                                        <span className="text-[13px] font-bold text-gray-500 ml-2">상태:</span>
-                                        <select
-                                            className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-lg outline-none text-[13px] font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-100"
-                                            value={statusFilter}
-                                            onChange={(e) => {
-                                                setStatusFilter(e.target.value);
-                                                setContactPage(1);
-                                            }}
-                                        >
-                                            <option value="ALL">전체 상태</option>
-                                            <option value="UNASSIGNED">배정 대기</option>
-                                            <option value="ASSIGNED">진행 대기(배정완료)</option>
-                                            <option value="CALLED">통화 완료</option>
-                                        </select>
+                                        </div>
 
-                                        <span className="text-[13px] font-bold text-gray-500 ml-2">지지 성향:</span>
-                                        <select
-                                            className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-lg outline-none text-[13px] font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-100"
-                                            value={supportLevelFilter}
-                                            onChange={(e) => {
-                                                setSupportLevelFilter(e.target.value);
-                                                setContactPage(1);
-                                            }}
-                                        >
-                                            <option value="ALL">전체 성향</option>
-                                            <option value="강하게 지지">강하게 지지</option>
-                                            <option value="약하게 지지">약하게 지지</option>
-                                            <option value="관심없음">관심없음</option>
-                                            <option value="지지하지 않음">지지하지 않음</option>
-                                            <option value="다른후보 지지">다른후보 지지</option>
-                                        </select>
+                                        <div className="h-6 w-px bg-slate-200"></div>
+
+                                        {filterCategory === 'agent' && (
+                                            <select
+                                                className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-lg outline-none text-[13px] font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-100"
+                                                value={volunteerFilter}
+                                                onChange={(e) => {
+                                                    setVolunteerFilter(e.target.value);
+                                                    setContactPage(1);
+                                                }}
+                                            >
+                                                <option value="ALL">전체 담당자</option>
+                                                <option value="UNASSIGNED">미할당 연락처</option>
+                                                {volunteers.map(v => (
+                                                    <option key={v.id} value={v.id}>{v.name}</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                        
+                                        {filterCategory === 'status' && (
+                                            <select
+                                                className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-lg outline-none text-[13px] font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-100"
+                                                value={statusFilter}
+                                                onChange={(e) => {
+                                                    setStatusFilter(e.target.value);
+                                                    setContactPage(1);
+                                                }}
+                                            >
+                                                <option value="ALL">전체 상태</option>
+                                                <option value="UNASSIGNED">배정 대기</option>
+                                                <option value="ASSIGNED">진행 대기(배정완료)</option>
+                                                <option value="CALLED">통화 완료</option>
+                                            </select>
+                                        )}
+
+                                        {filterCategory === 'support' && (
+                                            <select
+                                                className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-lg outline-none text-[13px] font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-100"
+                                                value={supportLevelFilter}
+                                                onChange={(e) => {
+                                                    setSupportLevelFilter(e.target.value);
+                                                    setContactPage(1);
+                                                }}
+                                            >
+                                                <option value="ALL">전체 성향</option>
+                                                <option value="강하게 지지">강하게 지지</option>
+                                                <option value="약하게 지지">약하게 지지</option>
+                                                <option value="관심없음">관심없음</option>
+                                                <option value="지지하지 않음">지지하지 않음</option>
+                                                <option value="다른후보 지지">다른후보 지지</option>
+                                            </select>
+                                        )}
                                     </div>
                                 </div>
                                 
