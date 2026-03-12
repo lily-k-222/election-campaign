@@ -1037,7 +1037,6 @@ export const AdminDashboard = () => {
                                                 <th className="p-4">전화번호</th>
                                                 <th className="p-4">지역</th>
                                                 <th className="p-4">성향</th>
-                                                <th className="p-4">메모 요약</th>
                                                 <th className="p-4">상태</th>
                                                 <th className="p-4">담당자</th>
                                                 <th className="p-4 pr-5 text-right">작업</th>
@@ -1072,11 +1071,14 @@ export const AdminDashboard = () => {
                                                                     <span className="text-gray-300">-</span>
                                                                 )}
                                                             </td>
-                                                            <td className="p-4 text-gray-500 text-xs max-w-[200px] truncate" title={contact.notes || ''}>
-                                                                {contact.notes ? contact.notes.split('\n')[0].substring(0, 30) + '...' : '-'}
-                                                            </td>
                                                             <td className="p-4">
-                                                                <Badge status={contact.status} />
+                                                                <Badge variant={
+                                                                    contact.status === 'CALLED' ? 'success' : 
+                                                                    contact.status === 'ASSIGNED' ? 'warning' : 'default'
+                                                                }>
+                                                                    {contact.status === 'CALLED' ? '통화 완료' : 
+                                                                     contact.status === 'ASSIGNED' ? '진행 대기' : '배정 대기'}
+                                                                </Badge>
                                                             </td>
                                                             <td className="p-4 text-gray-600 font-medium">
                                                                 {assignedVolunteer ? assignedVolunteer.name : <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs font-bold">미할당</span>}
