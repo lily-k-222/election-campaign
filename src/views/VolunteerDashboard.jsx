@@ -392,29 +392,29 @@ export const VolunteerDashboard = () => {
                                         </div>
                                     </div>
                                     
-                                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
+                                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0">
                                             <button 
                                                 onClick={() => openContactDetail(contact)}
-                                                className="px-5 py-2.5 bg-[#1e3a8a] text-white hover:bg-[#1e40af] text-[14px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-[#1e3a8a]"
+                                                className="px-4 py-2 bg-[#1e3a8a] text-white hover:bg-[#1e40af] text-[13px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-[#1e3a8a]"
                                             >
-                                                <Phone size={15} className="animate-pulse" /> 전화 걸기
+                                                <Phone size={14} className="animate-pulse" /> 전화 걸기
                                             </button>
                                             
                                             {contact.status === 'CALLED' ? (
-                                                <div className="px-2.5 py-1.5 text-[11px] font-black rounded-xl bg-green-100 text-green-700 border border-green-200 flex items-center gap-1 shadow-sm">
-                                                    <CheckCircle2 size={13} /> 통화완료
+                                                <div className="px-4 py-2 text-[13px] font-black rounded-xl bg-green-100 text-green-700 border border-green-200 flex items-center gap-1.5 shadow-sm shrink-0">
+                                                    <CheckCircle2 size={14} /> 통화완료
                                                 </div>
                                             ) : (
-                                                <div className="px-2.5 py-1.5 text-[11px] font-black rounded-xl bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
-                                                    진행대기
+                                                <div className="px-4 py-2 text-[13px] font-black rounded-xl bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1.5 shrink-0">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" /> 진행대기
                                                 </div>
                                             )}
 
                                             <button 
                                                 onClick={() => handleCallFailedDirect(contact)}
-                                                className="px-2.5 py-1.5 bg-amber-500 text-white hover:bg-amber-600 text-[11px] font-black rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1 shrink-0 border border-amber-400"
+                                                className="px-4 py-2 bg-amber-500 text-white hover:bg-amber-600 text-[13px] font-black rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 shrink-0 border border-amber-400"
                                             >
-                                                <PhoneOff size={13} /> 통화실패
+                                                <PhoneOff size={14} /> 통화실패
                                             </button>
                                         </div>
                                     </div>
