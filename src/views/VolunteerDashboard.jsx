@@ -21,8 +21,9 @@ export const VolunteerDashboard = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedContact, setSelectedContact] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [showAllContacts, setShowAllContacts] = useState(false);
     const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'PENDING', 'CALLED'
+    const [currentPage, setCurrentPage] = useState(1);
+    const contactsPerPage = 10;
     
     // Status Modal State
     const [dialogConfig, setDialogConfig] = useState({ isOpen: false, type: 'alert', title: '', message: '', onConfirm: null });
@@ -74,24 +75,38 @@ export const VolunteerDashboard = () => {
     const displayStats = (isAdmin && localStats.total === 0) ? stats : localStats;
     
     const myContacts = useMemo(() => {
-        if (statusFilter === 'ALL') return volunteerContacts;
-        if (statusFilter === 'CALLED') return volunteerContacts.filter(c => c.status === 'CALLED');
-        if (statusFilter === 'PENDING') return volunteerContacts.filter(c => c.status !== 'CALLED');
-        return volunteerContacts;
-    }, [volunteerContacts, statusFilter]);
+        let list = volunteerContacts;
+        if (statusFilter === 'CALLED') {
+            list = volunteerContacts.filter(c => c.status === 'CALLED');
+        } else if (statusFilter === 'PENDING') {
+            list = volunteerContacts.filter(c => c.status !== 'CALLED');
+        }
+        
+        // Final search filtering inside myContacts to make pagination work with search
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            list = list.filter(c => 
+                c.name.toLowerCase().includes(query) || 
+                (c.phone && c.phone.includes(query))
+            );
+        }
+        
+        return list;
+    }, [volunteerContacts, statusFilter, searchQuery]);
 
-    // Filter contacts based on search query
-    const filteredSearchContacts = useMemo(() => {
-        if (!searchQuery.trim()) return [];
-        const query = searchQuery.toLowerCase();
-        return myContacts.filter(c => 
-            c.name.toLowerCase().includes(query) || 
-            (c.phone && c.phone.includes(query))
-        );
-    }, [searchQuery, myContacts]);
+    // Reset page when filter or search changes
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [statusFilter, searchQuery]);
 
+    const totalContacts = myContacts.length;
+    const totalPages = Math.ceil(totalContacts / contactsPerPage);
+    
     // Contacts to display in the main list
-    const displayContacts = showAllContacts ? myContacts : myContacts.slice(0, 5);
+    const displayContacts = useMemo(() => {
+        const start = (currentPage - 1) * contactsPerPage;
+        return myContacts.slice(start, start + contactsPerPage);
+    }, [myContacts, currentPage]);
 
     const openContactDetail = (contact) => {
         setSelectedContact(contact);
@@ -204,12 +219,6 @@ export const VolunteerDashboard = () => {
                 <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-6 flex flex-col">
                     <div className="flex justify-between items-end mb-4">
                         <h2 className="text-[18px] font-extrabold text-slate-800 tracking-tight">나의 캠페인 진행 상황</h2>
-                        <button 
-                            onClick={() => setShowAllContacts(true)}
-                            className="text-[13px] font-extrabold text-[#1e3a8a] hover:text-[#1e40af] flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full transition-colors active:scale-95"
-                        >
-                            안내 명단 가기 <ChevronRight size={14} />
-                        </button>
                     </div>
                     
                     {isVStatsLoading ? (
@@ -235,72 +244,82 @@ export const VolunteerDashboard = () => {
                     )}
                 </div>
 
-                {/* 2) Search Bar */}
-                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-6 flex flex-col relative z-20">
-                    <h2 className="text-[16px] font-extrabold text-slate-800 tracking-tight mb-3">연락처 빠른 검색</h2>
-                    <div className="relative">
-                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="이름 또는 전화번호로 검색해보세요"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-full focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a] outline-none text-[15px] font-bold text-slate-700 placeholder:text-slate-400 shadow-inner transition-all"
-                        />
-                    </div>
-                    
-                    {/* Search Results Dropdown */}
-                    {searchQuery.trim() && (
-                        <div className="absolute top-[100%] left-6 right-6 mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-30 flex flex-col">
-                            {filteredSearchContacts.length === 0 ? (
-                                <div className="p-4 text-center text-slate-500 font-bold text-[14px]">검색 결과가 없습니다.</div>
-                            ) : (
-                                <ul className="max-h-[300px] overflow-y-auto">
-                                    {filteredSearchContacts.map(c => (
-                                        <li key={c.id}>
-                                            <button 
-                                                onClick={() => openContactDetail(c)}
-                                                className="w-full text-left px-5 py-3.5 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex items-center justify-between transition-colors group"
-                                            >
-                                                <div className="flex flex-col">
-                                                    <span className="font-extrabold text-slate-800 text-[15px]">{c.name}</span>
-                                                    <span className="text-slate-500 font-mono text-[13px]">{c.phone}</span>
-                                                </div>
-                                                <div className="w-8 h-8 rounded-full bg-blue-50 text-[#1e3a8a] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <ChevronRight size={16} />
-                                                </div>
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* 3) Assigned Contacts List */}
+                {/* 2) Assigned Contacts List */}
                 <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-6 flex flex-col z-10">
                     <div className="flex justify-between items-center mb-5 border-b border-slate-100 pb-4">
                         <h2 className="text-[18px] font-extrabold text-slate-800 tracking-tight flex items-center gap-2 border-l-4 border-[#1e3a8a] pl-3">
                             나의 할당 명단
-                            <span className="bg-slate-100 text-slate-600 text-[12px] px-2 py-0.5 rounded-full">{myContacts.length}</span>
+                            <span className="bg-slate-100 text-slate-600 text-[12px] px-2 py-0.5 rounded-full">{totalContacts}</span>
                         </h2>
-                        {!showAllContacts && myContacts.length > 5 && (
-                            <button 
-                                onClick={() => setShowAllContacts(true)}
-                                className="text-[13px] font-black text-[#1e3a8a] hover:text-[#1e40af] bg-blue-50 px-3 py-1.5 rounded-full transition-colors active:scale-95"
-                            >
-                                전체보기
-                            </button>
-                        )}
-                        {showAllContacts && (
-                            <button 
-                                onClick={() => setShowAllContacts(false)}
-                                className="text-[13px] font-extrabold text-slate-500 hover:text-slate-800 px-3 py-1.5 transition-colors"
-                            >
-                                접기
-                            </button>
-                        )}
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalContacts > 0 && (
+                        <div className="flex justify-between items-center mb-5 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <div className="text-[12px] text-slate-500 font-bold">
+                                {(currentPage - 1) * contactsPerPage + 1} - {Math.min(currentPage * contactsPerPage, totalContacts)} / {totalContacts}
+                            </div>
+                            
+                            <div className="flex bg-slate-200/50 rounded-lg p-1 items-center gap-2">
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-md text-[12px] font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1"
+                                >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> 이전
+                                </button>
+                                
+                                <div className="flex items-center gap-1 px-1">
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max={totalPages}
+                                        defaultValue={currentPage}
+                                        key={currentPage}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                let val = parseInt(e.target.value);
+                                                if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                                                    setCurrentPage(val);
+                                                } else {
+                                                    e.target.value = currentPage;
+                                                }
+                                            }
+                                        }}
+                                        onBlur={(e) => {
+                                            let val = parseInt(e.target.value);
+                                            if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                                                setCurrentPage(val);
+                                            } else {
+                                                e.target.value = currentPage;
+                                            }
+                                        }}
+                                        className="w-10 text-center py-1 rounded border border-slate-200 text-[12px] font-bold outline-none focus:ring-2 focus:ring-[#1e3a8a]/20"
+                                    />
+                                    <span className="text-[12px] font-bold text-slate-400">/ {totalPages}</span>
+                                </div>
+
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1.5 rounded-md text-[12px] font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1"
+                                >
+                                    다음 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Search Bar */}
+                    <div className="relative mb-5">
+                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="명단 내 빠른 검색..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a] outline-none text-[14px] font-bold text-slate-700 placeholder:text-slate-400 transition-all shadow-inner"
+                        />
                     </div>
                     
                     {/* Status Filter Tabs */}
@@ -315,13 +334,13 @@ export const VolunteerDashboard = () => {
                             onClick={() => setStatusFilter('PENDING')}
                             className={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-all ${statusFilter === 'PENDING' ? 'bg-[#1e3a8a] text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200/50'}`}
                         >
-                            대기 중 ({volunteerContacts.filter(c => c.status !== 'CALLED').length})
+                            진행 대기 ({volunteerContacts.filter(c => c.status !== 'CALLED').length})
                         </button>
                         <button 
                             onClick={() => setStatusFilter('CALLED')}
                             className={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-all ${statusFilter === 'CALLED' ? 'bg-[#1e3a8a] text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200/50'}`}
                         >
-                            완료 ({volunteerContacts.filter(c => c.status === 'CALLED').length})
+                            통화 완료 ({volunteerContacts.filter(c => c.status === 'CALLED').length})
                         </button>
                     </div>
 
@@ -352,11 +371,11 @@ export const VolunteerDashboard = () => {
                                             {contact.status === 'CALLED' ? (
                                                 <div className="px-3 py-1.5 text-[13px] font-extrabold rounded-lg bg-green-100 text-green-700 flex items-center gap-1 border border-green-200">
                                                     <CheckCircle2 size={14} />
-                                                    완료
+                                                    통화 완료
                                                 </div>
                                             ) : (
                                                 <div className="px-3 py-1.5 text-[13px] font-extrabold rounded-lg bg-slate-100 text-slate-500 flex items-center gap-1 border border-slate-200">
-                                                    대기
+                                                    진행 대기
                                                 </div>
                                             )}
                                         </div>
@@ -381,6 +400,10 @@ export const VolunteerDashboard = () => {
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
                 contact={selectedContact}
+                onUpdate={(updatedContact) => {
+                    // Update the local list reflecting changes from the modal
+                    setVolunteerContacts(prev => prev.map(c => c.id === updatedContact.id ? { ...c, ...updatedContact } : c));
+                }}
             />
             
             <DialogModal

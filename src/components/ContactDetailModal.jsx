@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCampaign } from '../context/CampaignContext';
-import { Phone, User, Calendar, MapPin, Tag, FileText, X, Plus, Heart, Edit2, Save, MessageSquare } from 'lucide-react';
+import { Phone, User, Calendar, MapPin, Tag, FileText, X, Plus, Heart, Edit2, Save, MessageSquare, PhoneOff } from 'lucide-react';
 import { supabase } from '../supabase';
 
 export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
@@ -113,6 +113,38 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
         handleSaveAll();
     };
 
+    const handleInvalidNumber = () => {
+        const now = new Date();
+        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        const recordEntry = `[${dateString}] 없는 번호`;
+        let currentNotes = isEditing ? editForm.notes : (contact.notes || '');
+        
+        if (currentNotes === '테스트용 데이터입니다.') {
+            currentNotes = '';
+        }
+        
+        const finalNotes = currentNotes 
+            ? `${currentNotes}\n${recordEntry}` 
+            : recordEntry;
+
+        const updateData = { 
+            notes: finalNotes, 
+            supportLevel: null, 
+            status: 'CALLED'
+        };
+
+        console.log('ContactDetailModal: handleInvalidNumber', updateData);
+        setNewRecord('');
+        updateContact(contact.id, updateData);
+        if (onUpdate) onUpdate({ id: contact.id, ...updateData });
+        
+        setIsEditing(false);
+        setIsEditingGuide(false);
+        alert('없는 번호로 기록되었습니다.');
+        onClose();
+    };
+
     const handleSaveGuide = () => {
         updateContact(contact.id, { callGuide: guideText });
         setIsEditingGuide(false);
@@ -128,20 +160,28 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                     </h2>
                     <div className="flex items-center gap-2">
                         {isEditing ? (
-                            <button onClick={handleSaveEdit} className="flex items-center gap-1 bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm">
-                                <Save size={16} /> 수정완료
+                            <button onClick={handleSaveEdit} className="flex items-center gap-1 bg-green-500 hover:bg-green-600 px-4 py-2 rounded-xl text-sm font-black transition-all shadow-md active:scale-95">
+                                <Save size={18} /> 수정 완료
                             </button>
                         ) : (
-                            <button onClick={() => setIsEditing(true)} className="flex items-center gap-1 bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
-                                <Edit2 size={16} /> 수정
-                            </button>
+                            <>
+                                <button onClick={() => setIsEditing(true)} className="flex items-center gap-1 bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                                    <Edit2 size={16} /> 정보 수정
+                                </button>
+                                <button 
+                                    onClick={handleInvalidNumber}
+                                    className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl text-sm font-black transition-all shadow-md text-white border border-red-400 ml-1 active:scale-95"
+                                >
+                                    <PhoneOff size={18} /> 없는 번호
+                                </button>
+                                <button 
+                                    onClick={handleSaveAll}
+                                    className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 px-4 py-2 rounded-xl text-sm font-black transition-all shadow-md text-white border border-slate-600 ml-1 active:scale-95"
+                                >
+                                    <Save size={18} /> 기록 저장
+                                </button>
+                            </>
                         )}
-                        <button 
-                            onClick={handleSaveAll}
-                            className="flex items-center gap-1 bg-slate-800 hover:bg-slate-900 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm text-white border border-slate-600 ml-1"
-                        >
-                            <Save size={16} /> 저장
-                        </button>
                         <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors active:scale-95 ml-2">
                             <X size={20} />
                         </button>

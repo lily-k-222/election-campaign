@@ -137,10 +137,13 @@ export const AdminDashboard = () => {
     };
 
     const handleLocalUpdate = (updatedContact) => {
+        console.log('AdminDashboard: Local update received', updatedContact);
         setContactData(prev => prev.map(c => c.id === updatedContact.id ? { ...c, ...updatedContact } : c));
         if (viewingContact && viewingContact.id === updatedContact.id) {
             setViewingContact(prev => ({ ...prev, ...updatedContact }));
         }
+        // Immediately refresh campaign stats for the dashboard counters
+        loadStats();
     };
 
     const loadContacts = async () => {
