@@ -75,23 +75,6 @@ export const VolunteerDashboard = () => {
         setVolunteerContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...updateData } : c));
     };
 
-    const handleCallSuccessDirect = async (contact) => {
-        const now = new Date();
-        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        
-        const recordEntry = `[${dateString}] 통화 완료 (간편 기록)`;
-        const finalNotes = contact.notes ? `${contact.notes}\n${recordEntry}` : recordEntry;
-
-        const updateData = { 
-            notes: finalNotes, 
-            status: 'CALLED'
-        };
-
-        console.log('VolunteerDashboard: handleCallSuccessDirect', updateData);
-        await updateContact(contact.id, updateData);
-        setVolunteerContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...updateData } : c));
-    };
-
     const stats = targetUserId ? getVolunteerStats(targetUserId) : { progress: 0, total: 0, completed: 0 };
     // If stats are 0 but we are admin, we might need to show the ones from AdminDashboard.
     // For now, let's just use the filtered contacts to calculate stats locally if they are loaded.
@@ -388,8 +371,18 @@ export const VolunteerDashboard = () => {
                             displayContacts.map(contact => (
                                 <div key={contact.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl hover:border-[#1e3a8a]/30 transition-all shadow-sm gap-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
-                                            <User size={18} />
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 border shadow-sm transition-colors ${contact.status === 'CALLED' ? 'bg-green-50 border-green-200 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                                            {contact.status === 'CALLED' ? (
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[10px] font-black leading-none uppercase">DONE</span>
+                                                    <CheckCircle2 size={12} className="mt-0.5" />
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[10px] font-black leading-none uppercase">WAIT</span>
+                                                    <Phone size={12} className="mt-0.5" />
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex flex-col">
                                             <span className="font-extrabold text-slate-800 text-[16px] whitespace-nowrap">{contact.name}</span>
@@ -400,21 +393,6 @@ export const VolunteerDashboard = () => {
                                         </div>
                                     </div>
                                     
-                                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
-                                        {/* Status Badge */}
-                                        <div className="flex justify-end gap-1 p-1 bg-transparent rounded-xl w-max grow sm:grow-0">
-                                            {contact.status === 'CALLED' ? (
-                                                <div className="px-3 py-1.5 text-[13px] font-extrabold rounded-lg bg-green-100 text-green-700 flex items-center gap-1 border border-green-200">
-                                                    <CheckCircle2 size={14} />
-                                                    통화 완료
-                                                </div>
-                                            ) : (
-                                                <div className="px-3 py-1.5 text-[13px] font-extrabold rounded-lg bg-slate-100 text-slate-500 flex items-center gap-1 border border-slate-200">
-                                                    진행 대기
-                                                </div>
-                                            )}
-                                        </div>
-                                        
                                         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                                             <button 
                                                 onClick={() => openContactDetail(contact)}
@@ -423,22 +401,24 @@ export const VolunteerDashboard = () => {
                                                 <Phone size={15} className="animate-pulse" /> 전화 걸기
                                             </button>
                                             
+                                            {contact.status === 'CALLED' ? (
+                                                <div className="px-2.5 py-1.5 text-[11px] font-black rounded-xl bg-green-100 text-green-700 border border-green-200 flex items-center gap-1 shadow-sm">
+                                                    <CheckCircle2 size={13} /> 통화완료
+                                                </div>
+                                            ) : (
+                                                <div className="px-2.5 py-1.5 text-[11px] font-black rounded-xl bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
+                                                    진행대기
+                                                </div>
+                                            )}
+
                                             <button 
                                                 onClick={() => handleCallFailedDirect(contact)}
                                                 className="px-2.5 py-1.5 bg-amber-500 text-white hover:bg-amber-600 text-[11px] font-black rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1 shrink-0 border border-amber-400"
                                             >
                                                 <PhoneOff size={13} /> 통화실패
                                             </button>
-                                            
-                                            <button 
-                                                onClick={() => handleCallSuccessDirect(contact)}
-                                                className="px-2.5 py-1.5 bg-green-500 text-white hover:bg-green-600 text-[11px] font-black rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1 shrink-0 border border-green-400"
-                                            >
-                                                <CheckCircle2 size={13} /> 통화완료
-                                            </button>
                                         </div>
                                     </div>
-                                </div>
                             ))
                         )}
                     </div>
