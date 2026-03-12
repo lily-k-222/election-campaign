@@ -138,6 +138,9 @@ export const AdminDashboard = () => {
 
     const handleLocalUpdate = (updatedContact) => {
         setContactData(prev => prev.map(c => c.id === updatedContact.id ? { ...c, ...updatedContact } : c));
+        if (viewingContact && viewingContact.id === updatedContact.id) {
+            setViewingContact(prev => ({ ...prev, ...updatedContact }));
+        }
     };
 
     const loadContacts = async () => {

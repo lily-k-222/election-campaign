@@ -94,6 +94,7 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
             region: editForm.region,
             phone: editForm.phone,
             notes: editForm.notes,
+            supportLevel: supportLevel, // Ensure this is included so it overwrites correctly
             // If both notes and support level are empty, set status back to ASSIGNED
             status: (isNotesEmpty && isSupportEmpty) ? 'ASSIGNED' : contact.status
         };
@@ -267,7 +268,13 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                                         onClick={() => {
                                             const newLevel = supportLevel === option ? null : option;
                                             setSupportLevel(newLevel);
-                                            const updateData = { supportLevel: newLevel, status: newLevel ? 'CALLED' : contact.status };
+                                            
+                                            const isNotesEmpty = !contact.notes || !contact.notes.trim();
+                                            const updateData = { 
+                                                supportLevel: newLevel, 
+                                                status: (newLevel) ? 'CALLED' : (isNotesEmpty ? 'ASSIGNED' : contact.status)
+                                            };
+                                            
                                             updateContact(contact.id, updateData);
                                             if (onUpdate) onUpdate({ id: contact.id, ...updateData });
                                         }}
