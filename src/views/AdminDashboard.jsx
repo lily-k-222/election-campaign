@@ -80,36 +80,13 @@ export const AdminDashboard = () => {
     const [statsError, setStatsError] = useState(null);
 
     // Initial Stats Load
-    const loadStats = async () => {
-        setIsStatsLoading(true);
-        setStatsError(null);
-        try {
-            const s = await getCampaignStats();
-            if (s.error) {
-                setStatsError(s.error);
-            }
-            setCampaignStats(s);
-            setUnassignedCount(s.unassigned || 0); 
-
-            if (users && users.length > 0) {
-                const vids = users.filter(u => u.role === 'VOLUNTEER').map(u => u.id);
-                if (vids.length > 0) {
-                    const vStats = await fetchAllVolunteerStats(vids);
-                    setVolunteerStatsMap(vStats);
-                }
-            }
-        } catch (e) {
-            setStatsError(e.message);
-        } finally {
-            setIsStatsLoading(false);
-        }
-    };
-
     // Initial Stats Load & Real-time Subscription for Dashboard
     React.useEffect(() => {
-        if (activeTab === 'campaign') {
+        if (activeTab === 'campaign' || activeTab === 'users' || activeTab === 'volunteers') {
             loadStats();
-            
+        }
+
+        if (activeTab === 'campaign') {
             // Subscribe to all changes on contacts table to refresh stats in real-time
             const channel = supabase
                 .channel('admin-stats-monitor')
@@ -126,7 +103,36 @@ export const AdminDashboard = () => {
                 supabase.removeChannel(channel);
             };
         }
-    }, [activeTab]);
+    }, [activeTab, !!users]);
+
+    const loadStats = async () => {
+        setIsStatsLoading(true);
+        setStatsError(null);
+        try {
+            const s = await getCampaignStats();
+            if (s.error) {
+                setStatsError(s.error);
+            }
+            setCampaignStats(s);
+            setUnassignedCount(s.unassigned || 0); 
+
+            if (users && users.length > 0) {
+                // Fetch stats for all users who might have assigned contacts (Admins and Volunteers)
+                const vids = users
+                    .filter(u => u.role !== 'DEVELOPER' && u.role !== 'REJECTED' && u.role !== 'UNAUTHORIZED')
+                    .map(u => u.id);
+                if (vids.length > 0) {
+                    const vStats = await fetchAllVolunteerStats(vids);
+                    setVolunteerStatsMap(vStats);
+                }
+            }
+        } catch (e) {
+            console.error("Stats fetch failed", e);
+            setStatsError(e.message);
+        } finally {
+            setIsStatsLoading(false);
+        }
+    };
 
     const loadContacts = async () => {
         if (activeTab === 'contacts') {
