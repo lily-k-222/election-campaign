@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { ContactDetailModal } from '../components/ContactDetailModal';
 import { DialogModal } from '../components/DialogModal';
-import { Search, ChevronRight, Phone, User, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Search, ChevronRight, Phone, PhoneOff, User, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 export const VolunteerDashboard = () => {
     const { getVolunteerStats, contacts, updateContact, fetchVolunteerContacts } = useCampaign();
@@ -56,6 +56,25 @@ export const VolunteerDashboard = () => {
         
         loadVolunteerData();
     }, [targetUserId, isAdmin, fetchVolunteerContacts, contacts, currentUser.id]);
+
+    const handleCallFailedDirect = async (contact) => {
+        const now = new Date();
+        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        const recordEntry = `[${dateString}] 통화 실패`;
+        const finalNotes = contact.notes ? `${contact.notes}\n${recordEntry}` : recordEntry;
+
+        const updateData = { 
+            notes: finalNotes, 
+            supportLevel: null, 
+            status: 'CALLED'
+        };
+
+        console.log('VolunteerDashboard: handleCallFailedDirect', updateData);
+        await updateContact(contact.id, updateData);
+        setVolunteerContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...updateData } : c));
+        alert(`${contact.name}님이 통화 실패로 기록되었습니다.`);
+    };
 
     const stats = targetUserId ? getVolunteerStats(targetUserId) : { progress: 0, total: 0, completed: 0 };
     // If stats are 0 but we are admin, we might need to show the ones from AdminDashboard.
@@ -383,9 +402,15 @@ export const VolunteerDashboard = () => {
                                         {/* View Detail Button */}
                                         <button 
                                             onClick={() => openContactDetail(contact)}
-                                            className="px-5 py-2.5 bg-[#1e3a8a] text-white hover:bg-[#1e40af] text-[14px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2 shrink-0 ml-auto sm:ml-0 border border-[#1e3a8a]"
+                                            className="px-4 py-2.5 bg-[#1e3a8a] text-white hover:bg-[#1e40af] text-[13px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-[#1e3a8a]"
                                         >
-                                            <Phone size={16} className="animate-pulse" /> 전화 걸기
+                                            <Phone size={15} className="animate-pulse" /> 전화 걸기
+                                        </button>
+                                        <button 
+                                            onClick={() => handleCallFailedDirect(contact)}
+                                            className="px-4 py-2.5 bg-red-500 text-white hover:bg-red-600 text-[13px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-red-400"
+                                        >
+                                            <PhoneOff size={15} /> 통화 실패
                                         </button>
                                     </div>
                                 </div>

@@ -113,11 +113,11 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
         handleSaveAll();
     };
 
-    const handleInvalidNumber = () => {
+    const handleCallFailed = () => {
         const now = new Date();
         const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         
-        const recordEntry = `[${dateString}] 없는 번호`;
+        const recordEntry = `[${dateString}] 통화 실패`;
         let currentNotes = isEditing ? editForm.notes : (contact.notes || '');
         
         if (currentNotes === '테스트용 데이터입니다.') {
@@ -134,14 +134,14 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
             status: 'CALLED'
         };
 
-        console.log('ContactDetailModal: handleInvalidNumber', updateData);
+        console.log('ContactDetailModal: handleCallFailed', updateData);
         setNewRecord('');
         updateContact(contact.id, updateData);
         if (onUpdate) onUpdate({ id: contact.id, ...updateData });
         
         setIsEditing(false);
         setIsEditingGuide(false);
-        alert('없는 번호로 기록되었습니다.');
+        alert('통화 실패로 기록되었습니다.');
         onClose();
     };
 
@@ -170,9 +170,15 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                                 </button>
                                 <button 
                                     onClick={handleSaveAll}
-                                    className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 px-4 py-2 rounded-xl text-sm font-black transition-all shadow-md text-white border border-slate-600 ml-1 active:scale-95"
+                                    className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all shadow-md text-white border border-slate-600 active:scale-95"
                                 >
-                                    <Save size={18} /> 기록 저장
+                                    <Save size={16} className="sm:w-[18px] sm:h-[18px]" /> 기록 저장
+                                </button>
+                                <button 
+                                    onClick={handleCallFailed}
+                                    className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all shadow-md text-white border border-red-400 active:scale-95"
+                                >
+                                    <PhoneOff size={16} className="sm:w-[18px] sm:h-[18px]" /> 통화 실패
                                 </button>
                             </>
                         )}
@@ -254,14 +260,6 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                             <h4 className="text-[15px] font-extrabold flex items-center gap-2 text-slate-700">
                                 <FileText size={16} /> 기존 메모 및 통화 기록
                             </h4>
-                            {!isEditing && (
-                                <button 
-                                    onClick={handleInvalidNumber}
-                                    className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-xl text-[12px] font-black transition-all shadow-md text-white border border-red-400 active:scale-95"
-                                >
-                                    <PhoneOff size={14} /> 없는 번호
-                                </button>
-                            )}
                         </div>
                         <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[100px] max-h-[200px] overflow-y-auto text-[13px] leading-relaxed whitespace-pre-wrap font-medium text-slate-600">
                             {isEditing ? (
