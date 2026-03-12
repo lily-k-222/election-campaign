@@ -3,7 +3,7 @@ import { useCampaign } from '../context/CampaignContext';
 import { Phone, User, Calendar, MapPin, Tag, FileText, X, Plus, Heart, Edit2, Save, MessageSquare } from 'lucide-react';
 import { supabase } from '../supabase';
 
-export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
+export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
     const { updateContact } = useCampaign();
     const [newRecord, setNewRecord] = useState('');
     const [supportLevel, setSupportLevel] = useState(null);
@@ -18,7 +18,8 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
         age: '',
         memberType: '',
         region: '',
-        phone: ''
+        phone: '',
+        notes: ''
     });
 
     useEffect(() => {
@@ -36,7 +37,8 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                 age: contact.age || '',
                 memberType: contact.memberType || '',
                 region: contact.region || '',
-                phone: contact.phone || ''
+                phone: contact.phone || '',
+                notes: contact.notes || ''
             });
             setIsEditing(false);
             setIsEditingGuide(false);
@@ -70,18 +72,22 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
         setNewRecord('');
         
         updateContact(contact.id, updateData);
+        if (onUpdate) onUpdate({ id: contact.id, ...updateData });
         alert('저장되었습니다.');
         onClose();
     };
 
     const handleSaveEdit = () => {
-        updateContact(contact.id, { 
+        const updateData = { 
             name: editForm.name,
             age: editForm.age,
             memberType: editForm.memberType,
             region: editForm.region,
-            phone: editForm.phone
-        });
+            phone: editForm.phone,
+            notes: editForm.notes
+        };
+        updateContact(contact.id, updateData);
+        if (onUpdate) onUpdate({ id: contact.id, ...updateData });
         setIsEditing(false);
     };
 
@@ -192,7 +198,16 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                             <FileText size={16} /> 기존 메모 및 통화 기록
                         </h4>
                         <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[100px] max-h-[200px] overflow-y-auto text-[13px] leading-relaxed whitespace-pre-wrap font-medium text-slate-600">
-                            {contact.notes || <span className="text-slate-400 italic">등록된 내용이 없습니다.</span>}
+                            {isEditing ? (
+                                <textarea 
+                                    className="w-full bg-transparent outline-none h-full min-h-[100px] resize-none"
+                                    value={editForm.notes}
+                                    onChange={(e) => setEditForm({...editForm, notes: e.target.value})}
+                                    placeholder="메모를 입력하세요..."
+                                />
+                            ) : (
+                                contact.notes || <span className="text-slate-400 italic">등록된 내용이 없습니다.</span>
+                            )}
                         </div>
                     </div>
 
@@ -239,8 +254,11 @@ export const ContactDetailModal = ({ isOpen, onClose, contact }) => {
                                     <button
                                         key={option}
                                         onClick={() => {
-                                            setSupportLevel(option);
-                                            updateContact(contact.id, { supportLevel: option, status: 'CALLED' });
+                                            const newLevel = supportLevel === option ? null : option;
+                                            setSupportLevel(newLevel);
+                                            const updateData = { supportLevel: newLevel, status: newLevel ? 'CALLED' : contact.status };
+                                            updateContact(contact.id, updateData);
+                                            if (onUpdate) onUpdate({ id: contact.id, ...updateData });
                                         }}
                                         className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors border ${
                                             supportLevel === option 

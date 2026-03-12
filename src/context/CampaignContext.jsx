@@ -207,6 +207,9 @@ export const CampaignProvider = ({ children }) => {
 
     // Action: Record call result
     const recordCall = async (contactId, result, notes = '') => {
+        // Optimistic update
+        setContacts(prev => prev.map(c => c.id === contactId ? { ...c, status: 'CALLED', surveyResult: result, notes: notes } : c));
+        
         try {
             const { error } = await supabase
                 .from('contacts')
@@ -221,6 +224,7 @@ export const CampaignProvider = ({ children }) => {
             return { success: true };
         } catch (error) {
             console.error('Failed to sync call record:', error);
+            // Revert on error? Or just leave it as is if real-time will eventually sync
             return { success: false, error };
         }
     };
@@ -249,6 +253,9 @@ export const CampaignProvider = ({ children }) => {
 
     // Admin & Volunteer action: Update an existing contact
     const updateContact = async (contactId, updatedData) => {
+        // Optimistic update
+        setContacts(prev => prev.map(c => c.id === contactId ? { ...c, ...updatedData } : c));
+
         try {
             const payload = unmapContact(updatedData);
 
