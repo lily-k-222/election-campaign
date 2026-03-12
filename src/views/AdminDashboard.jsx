@@ -190,7 +190,7 @@ export const AdminDashboard = () => {
     })).sort((a, b) => b.stats.completed - a.stats.completed);
 
     const stats = campaignStats;
-    const progressPercent = stats.total === 0 ? 0 : Math.round((stats.completed / stats.total) * 100);
+    const progressPercent = stats.total === 0 ? "0" : ((stats.completed / stats.total) * 100).toFixed(2);
 
     const [selectedVolunteer, setSelectedVolunteer] = useState('');
     const [assignCount, setAssignCount] = useState(5);

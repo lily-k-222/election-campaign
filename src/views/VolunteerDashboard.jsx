@@ -68,7 +68,7 @@ export const VolunteerDashboard = () => {
             total,
             completed,
             remaining: total - completed,
-            progress: total === 0 ? 0 : Math.round((completed / total) * 100)
+            progress: total === 0 ? 0 : ((completed / total) * 100).toFixed(2)
         };
     }, [volunteerContacts]);
 

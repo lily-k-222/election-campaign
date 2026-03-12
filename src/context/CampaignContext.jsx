@@ -320,7 +320,7 @@ export const CampaignProvider = ({ children }) => {
                 total: vContacts.length,
                 completed: completedContacts.length,
                 remaining: vContacts.length - completedContacts.length,
-                progress: vContacts.length === 0 ? 0 : Math.round((completedContacts.length / vContacts.length) * 100)
+                progress: vContacts.length === 0 ? 0 : ((completedContacts.length / vContacts.length) * 100).toFixed(2)
             };
         }
         return { total: 0, completed: 0, remaining: 0, progress: 0 };
@@ -346,7 +346,7 @@ export const CampaignProvider = ({ children }) => {
                     total,
                     completed,
                     remaining: total - completed,
-                    progress: total === 0 ? 0 : Math.round((completed / total) * 100)
+                    progress: total === 0 ? 0 : ((completed / total) * 100).toFixed(2)
                 };
             });
             
