@@ -55,12 +55,15 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
         let finalSupportLevel = supportLevel;
         let finalStatus = finalSupportLevel ? 'CALLED' : 'ASSIGNED';
         
-        // Handle new record addition
-        if (newRecord.trim()) {
+        const isSupportChanged = finalSupportLevel !== contact.supportLevel;
+        const hasNewRecord = newRecord.trim().length > 0;
+
+        // Handle new record addition OR support level change logging
+        if (hasNewRecord || isSupportChanged) {
             const now = new Date();
             const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
             
-            const recordText = newRecord.trim() ? `${newRecord.trim()}\n` : '';
+            const recordText = hasNewRecord ? `${newRecord.trim()}\n` : '';
             const supportText = finalSupportLevel ? `(성향: ${finalSupportLevel})` : '(성향: 미확인)';
             const recordEntry = `[${dateString}] ${recordText}${supportText}`;
             
@@ -72,9 +75,10 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                 ? `${finalNotes}\n${recordEntry}` 
                 : recordEntry;
                 
-            // If a record is added, it's definitely a call
-            finalStatus = 'CALLED';
-        } else if (!isEditing && finalSupportLevel === contact.supportLevel) {
+            // If a record is added or support level is set, it's definitely a call
+            // But if support level was removed and no new record, the top-level logic handles ASSIGNED
+            if (finalSupportLevel) finalStatus = 'CALLED';
+        } else if (!isEditing) {
             // Nothing changed and not editing
             onClose();
             return;
@@ -274,15 +278,6 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                                         onClick={() => {
                                             const newLevel = supportLevel === option ? null : option;
                                             setSupportLevel(newLevel);
-                                            
-                                            // Status is purely based on whether a support level is selected
-                                            const updateData = { 
-                                                supportLevel: newLevel, 
-                                                status: newLevel ? 'CALLED' : 'ASSIGNED'
-                                            };
-                                            
-                                            updateContact(contact.id, updateData);
-                                            if (onUpdate) onUpdate({ id: contact.id, ...updateData });
                                         }}
                                         className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors border ${
                                             supportLevel === option 
