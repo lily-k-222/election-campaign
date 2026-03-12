@@ -49,85 +49,64 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
 
     const supportOptions = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
 
-    const handleSaveEdit = (callback) => {
-        const isNotesEmpty = !editForm.notes.trim();
-        const isSupportEmpty = !supportLevel;
-
-        const updateData = { 
-            name: editForm.name,
-            age: editForm.age,
-            memberType: editForm.memberType,
-            region: editForm.region,
-            phone: editForm.phone,
-            notes: editForm.notes,
-            supportLevel: supportLevel,
-            // If both notes and support level are empty, set status back to ASSIGNED
-            status: (isNotesEmpty && isSupportEmpty) ? 'ASSIGNED' : 'CALLED'
-        };
-        updateContact(contact.id, updateData);
-        if (onUpdate) onUpdate({ id: contact.id, ...updateData });
-        setIsEditing(false);
-        if (callback && typeof callback === 'function') callback(updateData);
-    };
 
     const handleSaveAll = () => {
-        // If we are in editing mode, handle basic info and potentially notes update first
-        if (isEditing) {
-            handleSaveEdit((updatedBasicInfo) => {
-                // After basic info save, check if there's also a new record to add
-                if (newRecord.trim()) {
-                    performRecordAddition(updatedBasicInfo.notes, updatedBasicInfo.supportLevel);
-                } else {
-                    alert('저장되었습니다.');
-                    onClose();
-                }
-            });
-        } else {
-            // Not in editing mode, just handle new record addition if any
-            if (!newRecord.trim() && supportLevel === contact.supportLevel) {
-                // Nothing changed except maybe deselecting? 
-                // Let's check if we need to revert status
-                const isNotesEmpty = !contact.notes || !contact.notes.trim();
-                if (isNotesEmpty && !supportLevel) {
-                    const updateData = { status: 'ASSIGNED', supportLevel: null };
-                    updateContact(contact.id, updateData);
-                    if (onUpdate) onUpdate({ id: contact.id, ...updateData });
-                }
-                onClose();
-                return;
-            }
-            performRecordAddition(contact.notes, supportLevel);
-        }
-    };
-
-    const performRecordAddition = (baseNotes, currentSupportLevel) => {
-        const now = new Date();
-        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        let finalNotes = isEditing ? editForm.notes : (contact.notes || '');
+        let finalSupportLevel = supportLevel;
+        let finalStatus = finalSupportLevel ? 'CALLED' : 'ASSIGNED';
         
-        const recordText = newRecord.trim() ? `${newRecord.trim()}\n` : '';
-        const supportText = currentSupportLevel ? `(성향: ${currentSupportLevel})` : '(성향: 미확인)';
-        const recordEntry = `[${dateString}] ${recordText}${supportText}`;
-        
-        let previousNotes = baseNotes || '';
-        if (previousNotes === '테스트용 데이터입니다.') {
-            previousNotes = '';
-        }
-        
-        const finalNotes = previousNotes 
-            ? `${previousNotes}\n${recordEntry}` 
-            : recordEntry;
+        // Handle new record addition
+        if (newRecord.trim()) {
+            const now = new Date();
+            const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
             
+            const recordText = newRecord.trim() ? `${newRecord.trim()}\n` : '';
+            const supportText = finalSupportLevel ? `(성향: ${finalSupportLevel})` : '(성향: 미확인)';
+            const recordEntry = `[${dateString}] ${recordText}${supportText}`;
+            
+            if (finalNotes === '테스트용 데이터입니다.') {
+                finalNotes = '';
+            }
+            
+            finalNotes = finalNotes 
+                ? `${finalNotes}\n${recordEntry}` 
+                : recordEntry;
+                
+            // If a record is added, it's definitely a call
+            finalStatus = 'CALLED';
+        } else if (!isEditing && finalSupportLevel === contact.supportLevel) {
+            // Nothing changed and not editing
+            onClose();
+            return;
+        }
+
         const updateData = { 
             notes: finalNotes, 
-            supportLevel: currentSupportLevel, 
-            status: 'CALLED' 
+            supportLevel: finalSupportLevel, 
+            status: finalStatus
         };
+
+        // Include basic info if editing
+        if (isEditing) {
+            updateData.name = editForm.name;
+            updateData.age = editForm.age;
+            updateData.memberType = editForm.memberType;
+            updateData.region = editForm.region;
+            updateData.phone = editForm.phone;
+        }
         
         setNewRecord('');
         updateContact(contact.id, updateData);
         if (onUpdate) onUpdate({ id: contact.id, ...updateData });
+        
+        setIsEditing(false);
+        setIsEditingGuide(false);
         alert('저장되었습니다.');
         onClose();
+    };
+
+    const handleSaveEdit = () => {
+        handleSaveAll();
     };
 
     const handleSaveGuide = () => {
@@ -296,13 +275,10 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                                             const newLevel = supportLevel === option ? null : option;
                                             setSupportLevel(newLevel);
                                             
-                                            // Check notes from either editForm (if editing) or contact (if not)
-                                            const currentNotes = isEditing ? editForm.notes : contact.notes;
-                                            const isNotesEmpty = !currentNotes || !currentNotes.trim();
-                                            
+                                            // Status is purely based on whether a support level is selected
                                             const updateData = { 
                                                 supportLevel: newLevel, 
-                                                status: (newLevel || !isNotesEmpty) ? 'CALLED' : 'ASSIGNED'
+                                                status: newLevel ? 'CALLED' : 'ASSIGNED'
                                             };
                                             
                                             updateContact(contact.id, updateData);
