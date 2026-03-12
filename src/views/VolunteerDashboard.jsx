@@ -22,6 +22,7 @@ export const VolunteerDashboard = () => {
     const [selectedContact, setSelectedContact] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [showAllContacts, setShowAllContacts] = useState(false);
+    const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'PENDING', 'CALLED'
     
     // Status Modal State
     const [dialogConfig, setDialogConfig] = useState({ isOpen: false, type: 'alert', title: '', message: '', onConfirm: null });
@@ -71,7 +72,13 @@ export const VolunteerDashboard = () => {
     }, [volunteerContacts]);
 
     const displayStats = (isAdmin && localStats.total === 0) ? stats : localStats;
-    const myContacts = volunteerContacts;
+    
+    const myContacts = useMemo(() => {
+        if (statusFilter === 'ALL') return volunteerContacts;
+        if (statusFilter === 'CALLED') return volunteerContacts.filter(c => c.status === 'CALLED');
+        if (statusFilter === 'PENDING') return volunteerContacts.filter(c => c.status !== 'CALLED');
+        return volunteerContacts;
+    }, [volunteerContacts, statusFilter]);
 
     // Filter contacts based on search query
     const filteredSearchContacts = useMemo(() => {
@@ -294,6 +301,28 @@ export const VolunteerDashboard = () => {
                                 접기
                             </button>
                         )}
+                    </div>
+                    
+                    {/* Status Filter Tabs */}
+                    <div className="flex p-1 bg-slate-100 rounded-xl mb-5">
+                        <button 
+                            onClick={() => setStatusFilter('ALL')}
+                            className={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-all ${statusFilter === 'ALL' ? 'bg-[#1e3a8a] text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200/50'}`}
+                        >
+                            전체 ({volunteerContacts.length})
+                        </button>
+                        <button 
+                            onClick={() => setStatusFilter('PENDING')}
+                            className={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-all ${statusFilter === 'PENDING' ? 'bg-[#1e3a8a] text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200/50'}`}
+                        >
+                            대기 중 ({volunteerContacts.filter(c => c.status !== 'CALLED').length})
+                        </button>
+                        <button 
+                            onClick={() => setStatusFilter('CALLED')}
+                            className={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-all ${statusFilter === 'CALLED' ? 'bg-[#1e3a8a] text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200/50'}`}
+                        >
+                            완료 ({volunteerContacts.filter(c => c.status === 'CALLED').length})
+                        </button>
                     </div>
 
                     <div className="flex flex-col gap-3">

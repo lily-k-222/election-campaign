@@ -7,7 +7,8 @@ import { Badge } from '../components/Badge';
 import { ContactFormModal } from '../components/ContactFormModal';
 import { ContactDetailModal } from '../components/ContactDetailModal';
 import { DialogModal } from '../components/DialogModal';
-import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList, Edit2, Save, X } from 'lucide-react';
+import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList, Edit2, Save, X, Download } from 'lucide-react';
+import { utils, writeFile } from 'xlsx';
 
 export const AdminDashboard = () => {
     const {
@@ -231,6 +232,71 @@ export const AdminDashboard = () => {
         } else {
             showDialog('alert', '수정 완료', '전체 연락처의 기본 안내문구가 업데이트되었습니다.');
             setIsSettingsModalOpen(false);
+        }
+    };
+
+    const handleExportToExcel = async () => {
+        setIsDataLoading(true);
+        try {
+            // Fetch all matching contacts without pagination limits
+            // We reuse the fetchContactsPaginated logic but with a very large pageSize or a dedicated fetch
+            const { data, error } = await supabase
+                .from('contacts')
+                .select('*')
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            // Apply client-side filters if needed, or refine query
+            let filtered = data;
+            
+            // Apply current filters-like logic
+            if (volunteerFilter !== 'ALL') {
+                if (volunteerFilter === 'UNASSIGNED') {
+                    filtered = filtered.filter(c => !c.assigned_to);
+                } else {
+                    filtered = filtered.filter(c => c.assigned_to === volunteerFilter);
+                }
+            }
+            
+            if (statusFilter !== 'ALL') {
+                filtered = filtered.filter(c => c.status === statusFilter);
+            }
+            
+            if (contactSearchTerm) {
+                const term = contactSearchTerm.toLowerCase();
+                filtered = filtered.filter(c => 
+                    c.name?.toLowerCase().includes(term) || 
+                    c.phone?.includes(term) || 
+                    c.region?.toLowerCase().includes(term) ||
+                    c.support_level?.toLowerCase().includes(term)
+                );
+            }
+
+            // Map to Korean headers for Excel
+            const excelData = filtered.map(c => ({
+                '이름': c.name,
+                '전화번호': c.phone,
+                '지역': c.region,
+                '성향': c.support_level || '-',
+                '상태': c.status === 'CALLED' ? '통화 완료' : (c.assigned_to ? '진행 대기' : '배정 대기'),
+                '담당자': users.find(u => u.id === c.assigned_to)?.name || '미할당',
+                '메모': c.notes || ''
+            }));
+
+            const worksheet = utils.json_to_sheet(excelData);
+            const workbook = utils.book_new();
+            utils.book_append_sheet(workbook, worksheet, "연락처 명부");
+            
+            const dateStr = new Date().toISOString().split('T')[0];
+            writeFile(workbook, `강진_캠페인_명부_${dateStr}.xlsx`);
+            
+            showDialog('alert', '성공', '파일 다운로드가 시작되었습니다.');
+        } catch (error) {
+            console.error('Export failed:', error);
+            showDialog('alert', '오류', '엑셀 추출 중 오류가 발생했습니다.');
+        } finally {
+            setIsDataLoading(false);
         }
     };
 
@@ -945,6 +1011,13 @@ export const AdminDashboard = () => {
                                                 🚨 DB 전체 초기화 (강진 명부)
                                             </button>
                                         )}
+                                        <button 
+                                            onClick={handleExportToExcel}
+                                            className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white text-[14px] font-extrabold rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2"
+                                        >
+                                            <Download size={16} />
+                                            엑셀 다운로드
+                                        </button>
                                         <button onClick={handleAddClick} className="px-6 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] text-white text-[14px] font-extrabold rounded-xl transition-all shadow-md active:scale-95">
                                             새 연락처 추가
                                         </button>
