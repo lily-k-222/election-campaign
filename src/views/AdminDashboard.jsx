@@ -1242,10 +1242,10 @@ export const AdminDashboard = () => {
                                                             <td className="p-4">
                                                                 <Badge variant={
                                                                     contact.status === 'CALLED' ? 'success' : 
-                                                                    contact.status === 'ASSIGNED' ? 'warning' : 'default'
+                                                                    (contact.assignedTo && contact.assignedTo !== 'UNASSIGNED') ? 'warning' : 'default'
                                                                 }>
                                                                     {contact.status === 'CALLED' ? '통화 완료' : 
-                                                                     contact.status === 'ASSIGNED' ? '진행 대기' : '배정 대기'}
+                                                                     (contact.assignedTo && contact.assignedTo !== 'UNASSIGNED') ? '진행 대기' : '배정 대기'}
                                                                 </Badge>
                                                             </td>
                                                             <td className="p-4 text-gray-600 font-medium">

@@ -169,12 +169,6 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                                     <Edit2 size={16} /> 정보 수정
                                 </button>
                                 <button 
-                                    onClick={handleInvalidNumber}
-                                    className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl text-sm font-black transition-all shadow-md text-white border border-red-400 ml-1 active:scale-95"
-                                >
-                                    <PhoneOff size={18} /> 없는 번호
-                                </button>
-                                <button 
                                     onClick={handleSaveAll}
                                     className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 px-4 py-2 rounded-xl text-sm font-black transition-all shadow-md text-white border border-slate-600 ml-1 active:scale-95"
                                 >
@@ -256,9 +250,19 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
 
                     {/* Memos / Call Records */}
                     <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col gap-3">
-                        <h4 className="text-[15px] font-extrabold flex items-center gap-2 text-slate-700 border-b border-slate-100 pb-2">
-                            <FileText size={16} /> 기존 메모 및 통화 기록
-                        </h4>
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                            <h4 className="text-[15px] font-extrabold flex items-center gap-2 text-slate-700">
+                                <FileText size={16} /> 기존 메모 및 통화 기록
+                            </h4>
+                            {!isEditing && (
+                                <button 
+                                    onClick={handleInvalidNumber}
+                                    className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-xl text-[12px] font-black transition-all shadow-md text-white border border-red-400 active:scale-95"
+                                >
+                                    <PhoneOff size={14} /> 없는 번호
+                                </button>
+                            )}
+                        </div>
                         <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[100px] max-h-[200px] overflow-y-auto text-[13px] leading-relaxed whitespace-pre-wrap font-medium text-slate-600">
                             {isEditing ? (
                                 <textarea 

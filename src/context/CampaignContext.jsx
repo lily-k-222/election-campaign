@@ -173,7 +173,10 @@ export const CampaignProvider = ({ children }) => {
             const ids = unassigned.map(c => c.id);
             const { error: updateError } = await supabase
                 .from('contacts')
-                .update({ assigned_to: volunteerId })
+                .update({ 
+                    assigned_to: volunteerId,
+                    status: 'ASSIGNED' 
+                })
                 .in('id', ids);
 
             if (updateError) throw updateError;
@@ -194,7 +197,10 @@ export const CampaignProvider = ({ children }) => {
         try {
             const { error } = await supabase
                 .from('contacts')
-                .update({ assigned_to: actualVolunteerId })
+                .update({ 
+                    assigned_to: actualVolunteerId,
+                    status: actualVolunteerId ? 'ASSIGNED' : 'UNASSIGNED'
+                })
                 .in('id', contactIds);
             
             if (error) throw error;
