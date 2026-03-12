@@ -105,12 +105,28 @@ export const AdminDashboard = () => {
         }
     };
 
-    // Initial Stats Load - Only once on mount if not loaded
+    // Initial Stats Load & Real-time Subscription for Dashboard
     React.useEffect(() => {
-        if (!campaignStats.total && !isStatsLoading) {
+        if (activeTab === 'campaign') {
             loadStats();
+            
+            // Subscribe to all changes on contacts table to refresh stats in real-time
+            const channel = supabase
+                .channel('admin-stats-monitor')
+                .on('postgres_changes', { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'contacts' 
+                }, () => {
+                    loadStats();
+                })
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
-    }, [contextLoading, !!users]);
+    }, [activeTab]);
 
     const loadContacts = async () => {
         if (activeTab === 'contacts') {
@@ -1020,7 +1036,8 @@ export const AdminDashboard = () => {
                                                 <th className="p-4">이름</th>
                                                 <th className="p-4">전화번호</th>
                                                 <th className="p-4">지역</th>
-                                                <th className="p-4">당원구분</th>
+                                                <th className="p-4">성향</th>
+                                                <th className="p-4">메모 요약</th>
                                                 <th className="p-4">상태</th>
                                                 <th className="p-4">담당자</th>
                                                 <th className="p-4 pr-5 text-right">작업</th>
@@ -1028,9 +1045,9 @@ export const AdminDashboard = () => {
                                         </thead>
                                         <tbody>
                                             {isDataLoading ? (
-                                                <tr><td colSpan="10" className="p-16 text-center text-gray-400 font-bold bg-gray-50/50">데이터를 불러오는 중입니다...</td></tr>
+                                                <tr><td colSpan="11" className="p-16 text-center text-gray-400 font-bold bg-gray-50/50">데이터를 불러오는 중입니다...</td></tr>
                                             ) : contactData.length === 0 ? (
-                                                <tr><td colSpan="10" className="p-16 text-center text-gray-500 font-medium bg-gray-50/50">등록되거나 검색된 연락처가 없습니다.</td></tr>
+                                                <tr><td colSpan="11" className="p-16 text-center text-gray-500 font-medium bg-gray-50/50">등록되거나 검색된 연락처가 없습니다.</td></tr>
                                             ) : (
                                                 contactData.map(contact => {
                                                     const assignedVolunteer = volunteers.find(v => v.id === contact.assignedTo);
@@ -1048,7 +1065,16 @@ export const AdminDashboard = () => {
                                                             <td className="p-4 font-bold text-gray-800">{contact.name}</td>
                                                             <td className="p-4 font-mono text-gray-600">{contact.phone}</td>
                                                             <td className="p-4 text-gray-500 max-w-[120px] truncate" title={contact.region}>{contact.region || '-'}</td>
-                                                            <td className="p-4 text-gray-500 text-xs max-w-[150px] truncate" title={contact.jobTitle}>{contact.jobTitle || '-'}</td>
+                                                            <td className="p-4">
+                                                                {contact.supportLevel ? (
+                                                                    <span className="font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-md text-[12px] whitespace-nowrap">{contact.supportLevel}</span>
+                                                                ) : (
+                                                                    <span className="text-gray-300">-</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-4 text-gray-500 text-xs max-w-[200px] truncate" title={contact.notes || ''}>
+                                                                {contact.notes ? contact.notes.split('\n')[0].substring(0, 30) + '...' : '-'}
+                                                            </td>
                                                             <td className="p-4">
                                                                 <Badge status={contact.status} />
                                                             </td>
