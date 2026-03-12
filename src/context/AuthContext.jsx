@@ -225,9 +225,20 @@ export const AuthProvider = ({ children }) => {
         
         try {
             // Check if user already exists
-            const { data: existing } = await supabase.from('users').select('id').eq('email', email).single();
+            const { data: existing } = await supabase.from('users').select('*').eq('email', email).single();
+            
             if (existing) {
-                return { success: false, error: '이미 등록된 이메일입니다.' };
+                // If user is rejected or pending, allow reactivation
+                if (existing.role === 'REJECTED' || existing.role === 'UNAUTHORIZED') {
+                    const { error } = await supabase
+                        .from('users')
+                        .update({ role, name })
+                        .eq('email', email);
+                    
+                    if (error) throw error;
+                    return { success: true };
+                }
+                return { success: false, error: '이미 사용 중인 이메일입니다.' };
             }
 
             const { error } = await supabase.from('users').insert([{

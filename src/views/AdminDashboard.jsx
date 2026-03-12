@@ -918,6 +918,7 @@ export const AdminDashboard = () => {
                                                 <option value="ALL">전체 권한</option>
                                                 <option value="ADMIN">관리자</option>
                                                 <option value="VOLUNTEER">자원봉사자</option>
+                                                <option value="REJECTED">권한 해제됨</option>
                                             </select>
                                         </div>
                                     </div>
@@ -934,8 +935,12 @@ export const AdminDashboard = () => {
                                             </thead>
                                             <tbody>
                                                 {(() => {
-                                                    let list = users.filter(u => u.role !== 'UNAUTHORIZED' && u.role !== 'REJECTED');
-                                                    if (userRoleSort !== 'ALL') {
+                                                    let list = users;
+                                                    if (userRoleSort === 'ALL') {
+                                                        // Show only active users for 'ALL' to keep it clean, as requested before
+                                                        list = list.filter(u => u.role === 'ADMIN' || u.role === 'VOLUNTEER' || u.role === 'DEVELOPER');
+                                                    } else {
+                                                        // Show specific role (including REJECTED if selected)
                                                         list = list.filter(u => u.role === userRoleSort);
                                                     }
                                                     if (userSearchTerm) {
