@@ -107,7 +107,13 @@ export const CampaignProvider = ({ children }) => {
 
             // Filters
             if (filters.status && filters.status !== 'ALL') {
-                query = query.eq('status', filters.status);
+                if (filters.status === 'UNASSIGNED') {
+                    query = query.eq('status', 'UNASSIGNED').is('assigned_to', null);
+                } else if (filters.status === 'ASSIGNED') {
+                    query = query.neq('status', 'CALLED').not('assigned_to', 'is', null);
+                } else {
+                    query = query.eq('status', filters.status);
+                }
             }
             if (filters.region && filters.region !== 'ALL') {
                 query = query.eq('region', filters.region);
@@ -341,7 +347,30 @@ export const CampaignProvider = ({ children }) => {
             const { count: completed } = await supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('status', 'CALLED');
             const { count: unassigned } = await supabase.from('contacts').select('*', { count: 'exact', head: true }).is('assigned_to', null);
 
-            return { total: total || 0, completed: completed || 0, unassigned: unassigned || 0, surveyCount: completed || 0, results: {} };
+            // Fetch survey results breakdown
+            const supportOptions = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
+            const results = {};
+            
+            // We can do this with a single query using count if we use a better approach, 
+            // but for simplicity and reliability with current schema, let's do parallel counts or a select with filter.
+            // Actually, we can fetch all called contacts and aggregate if the number is small, 
+            // but since we have a counts tool, let's use it for accuracy.
+            
+            await Promise.all(supportOptions.map(async (option) => {
+                const { count } = await supabase
+                    .from('contacts')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('support_level', option);
+                results[option] = count || 0;
+            }));
+
+            return { 
+                total: total || 0, 
+                completed: completed || 0, 
+                unassigned: unassigned || 0, 
+                surveyCount: Object.values(results).reduce((a, b) => a + b, 0), 
+                results 
+            };
         } catch (e) {
             console.error("Stats fetch failed", e);
             return { total: 0, completed: 0, unassigned: 0, surveyCount: 0, results: {}, error: e.message };

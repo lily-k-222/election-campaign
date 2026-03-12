@@ -59,6 +59,7 @@ export const AdminDashboard = () => {
     const [totalContacts, setTotalContacts] = useState(0);
     const [contactSearchTerm, setContactSearchTerm] = useState('');
     const [volunteerFilter, setVolunteerFilter] = useState('ALL');
+    const [statusFilter, setStatusFilter] = useState('ALL');
     const [contactPage, setContactPage] = useState(1);
     const contactsPerPage = 50;
     const [isDataLoading, setIsDataLoading] = useState(false);
@@ -117,7 +118,10 @@ export const AdminDashboard = () => {
             const result = await fetchContactsPaginated({ 
                 page: contactPage, 
                 pageSize: contactsPerPage, 
-                filters: { volunteerId: volunteerFilter },
+                filters: { 
+                    volunteerId: volunteerFilter,
+                    status: statusFilter
+                },
                 search: contactSearchTerm 
             });
             setContactData(result.data || []);
@@ -129,7 +133,7 @@ export const AdminDashboard = () => {
     // Paginated Fetch Effect
     React.useEffect(() => {
         loadContacts();
-    }, [activeTab, contactPage, contactSearchTerm, volunteerFilter]);
+    }, [activeTab, contactPage, contactSearchTerm, volunteerFilter, statusFilter]);
 
     const showDialog = (type, title, message, onConfirm = null) => {
         setDialogConfig({ isOpen: true, type, title, message, onConfirm });
@@ -414,8 +418,10 @@ export const AdminDashboard = () => {
                         {/* Card 1: 전체 캠페인 진행 상황 */}
                         <div 
                             onClick={() => {
-                                setActiveTab('completed');
-                                setCompletedPage(1);
+                                setStatusFilter('CALLED');
+                                setVolunteerFilter('ALL');
+                                setActiveTab('contacts');
+                                setContactPage(1);
                             }}
                             className="bg-white rounded-[24px] shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 p-7 flex flex-col cursor-pointer hover:bg-slate-50 relative"
                         >
@@ -637,88 +643,10 @@ export const AdminDashboard = () => {
             )}
 
             {/* Other Tabs Content Maintained but Wrapped Properly */}
-            {(activeTab === 'users' || activeTab === 'contacts' || activeTab === 'completed' || activeTab === 'volunteers') && (
+            {(activeTab === 'users' || activeTab === 'contacts' || activeTab === 'volunteers') && (
                 <div className="px-8 py-6 text-gray-900 bg-[#e8edf2] flex-1 w-full flex flex-col items-center overflow-y-auto">
                     <div className="w-full max-w-[1100px] flex flex-col gap-6">
                         
-                        {activeTab === 'completed' && (() => {
-                            // Note: For admins, we should ideally fetch this paginated too.
-                            // For now, using the campaignStats for display but list will be limited.
-                            const completedContacts = contactData.filter(c => c.status === 'CALLED' || c.supportLevel);
-                            const totalPages = Math.ceil(totalContacts / itemsPerPage) || 1;
-                            const currentContacts = completedContacts; // In paginated mode, data is already limited
-
-                            return (
-                                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 flex flex-col">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-[20px] font-extrabold text-slate-800 flex items-center gap-2 border-l-4 border-[#1e3a8a] pl-3 tracking-tight">
-                                            통화 완료자 명단 ({completedContacts.length}명)
-                                        </h2>
-                                        <div className="flex bg-gray-100 rounded-lg p-1 items-center gap-2">
-                                            <button 
-                                                onClick={() => setCompletedPage(p => Math.max(1, p - 1))}
-                                                disabled={completedPage === 1}
-                                                className="px-3 py-1.5 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1"
-                                            >
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> 이전
-                                            </button>
-                                            <span className="text-sm font-bold text-gray-600 px-2">{completedPage} / {totalPages}</span>
-                                            <button 
-                                                onClick={() => setCompletedPage(p => Math.min(totalPages, p + 1))}
-                                                disabled={completedPage === totalPages}
-                                                className="px-3 py-1.5 rounded-md text-sm font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1"
-                                            >
-                                                다음 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm">
-                                        <table className="w-full text-left text-sm whitespace-nowrap">
-                                            <thead className="bg-[#f8fafc] text-gray-600 font-bold border-b border-gray-100">
-                                                <tr>
-                                                    <th className="p-4 pl-5">이름</th>
-                                                    <th className="p-4">나이</th>
-                                                    <th className="p-4">당원구분</th>
-                                                    <th className="p-4">지역</th>
-                                                    <th className="p-4">전화번호</th>
-                                                    <th className="p-4">성향</th>
-                                                    <th className="p-4">담당자</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {currentContacts.length === 0 ? (
-                                                    <tr><td colSpan="7" className="p-6 text-center text-gray-500 font-medium">통화 완료된 연락처가 없습니다.</td></tr>
-                                                ) : (
-                                                    currentContacts.map(contact => {
-                                                        const assignedVolunteer = volunteers.find(v => v.id === contact.assignedTo);
-                                                        return (
-                                                            <tr 
-                                                                key={contact.id} 
-                                                                className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors cursor-pointer"
-                                                                onClick={() => handleEditClick(contact)}
-                                                            >
-                                                                <td className="p-4 pl-5 font-bold text-[#1e3a8a] flex items-center gap-2">
-                                                                    {contact.name}
-                                                                </td>
-                                                                <td className="p-4 text-gray-500">{contact.age || '-'}</td>
-                                                                <td className="p-4 text-gray-500">{contact.memberType || '-'}</td>
-                                                                <td className="p-4 text-gray-500">{contact.region || '-'}</td>
-                                                                <td className="p-4 font-mono text-gray-600">{contact.phone}</td>
-                                                                <td className="p-4">
-                                                                    <span className="font-bold text-gray-700 bg-gray-100 px-2 py-1 rounded-md text-xs">{contact.supportLevel || '미분류'}</span>
-                                                                </td>
-                                                                <td className="p-4 text-gray-600 font-medium">{assignedVolunteer ? assignedVolunteer.name : '알수없음'}</td>
-                                                            </tr>
-                                                        );
-                                                    })
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            );
-                        })()}
 
                         {activeTab === 'volunteers' && (
                             <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 flex flex-col">
@@ -1024,11 +952,26 @@ export const AdminDashboard = () => {
                                                 setContactPage(1);
                                             }}
                                         >
-                                            <option value="ALL">전체 보기</option>
+                                            <option value="ALL">전체 담당자</option>
                                             <option value="UNASSIGNED">미할당 연락처</option>
                                             {volunteers.map(v => (
                                                 <option key={v.id} value={v.id}>{v.name}</option>
                                             ))}
+                                        </select>
+                                        
+                                        <span className="text-[13px] font-bold text-gray-500 ml-2">상태:</span>
+                                        <select
+                                            className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-lg outline-none text-[13px] font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-100"
+                                            value={statusFilter}
+                                            onChange={(e) => {
+                                                setStatusFilter(e.target.value);
+                                                setContactPage(1);
+                                            }}
+                                        >
+                                            <option value="ALL">전체 상태</option>
+                                            <option value="UNASSIGNED">배정 대기</option>
+                                            <option value="ASSIGNED">진행 대기(배정완료)</option>
+                                            <option value="CALLED">통화 완료</option>
                                         </select>
                                     </div>
                                 </div>
