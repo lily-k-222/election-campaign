@@ -224,35 +224,55 @@ export const AuthProvider = ({ children }) => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return { success: false, error: 'Unauthorized' };
         
         try {
-            // Check if user already exists
-            const { data: existing } = await supabase.from('users').select('*').eq('email', email).single();
+            const normalizedEmail = email.toLowerCase().trim();
+            console.log(`AuthContext: Manually adding/updating user ${normalizedEmail} with role ${role}`);
+
+            // Check if user already exists (case-insensitive)
+            const { data: existing, error: findError } = await supabase
+                .from('users')
+                .select('*')
+                .ilike('email', normalizedEmail)
+                .maybeSingle();
             
+            if (findError) {
+                console.error("AuthContext: Error checking for existing user:", findError);
+            }
+
             if (existing) {
+                console.log(`AuthContext: User ${normalizedEmail} found with current role ${existing.role}`);
                 // If user is rejected or pending, allow reactivation
                 if (existing.role === 'REJECTED' || existing.role === 'UNAUTHORIZED') {
                     const { error } = await supabase
                         .from('users')
                         .update({ role, name })
-                        .eq('email', email);
+                        .eq('id', existing.id);
                     
-                    if (error) throw error;
+                    if (error) {
+                        console.error("AuthContext: Failed to reactivate user:", error);
+                        throw error;
+                    }
+                    console.log(`AuthContext: User ${normalizedEmail} reactivated successfully`);
                     return { success: true };
                 }
                 return { success: false, error: '이미 사용 중인 이메일입니다.' };
             }
 
-            const { error } = await supabase.from('users').insert([{
+            const { error: insError } = await supabase.from('users').insert([{
                 id: `pending:${Date.now()}`, // Temporary ID
-                email,
+                email: normalizedEmail,
                 name,
                 role
             }]);
 
-            if (error) throw error;
+            if (insError) {
+                console.error("AuthContext: Failed to insert new manual user:", insError);
+                throw insError;
+            }
+            console.log(`AuthContext: New user ${normalizedEmail} added successfully`);
             return { success: true };
         } catch (error) {
             console.error("Manual user addition failed:", error);
-            return { success: false, error };
+            return { success: false, error: error.message || '사용자 추가에 실패했습니다.' };
         }
     };
 
