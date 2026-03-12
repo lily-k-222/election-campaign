@@ -369,8 +369,8 @@ export const VolunteerDashboard = () => {
                             </div>
                         ) : (
                             displayContacts.map(contact => (
-                                <div key={contact.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl hover:border-[#1e3a8a]/30 transition-all shadow-sm gap-4">
-                                    <div className="flex items-center gap-3">
+                                <div key={contact.id} className="flex flex-col sm:flex-row items-start sm:items-center p-4 bg-white border border-slate-200 rounded-2xl hover:border-[#1e3a8a]/30 transition-all shadow-sm gap-4">
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
                                         <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 border shadow-sm transition-colors ${contact.status === 'CALLED' ? 'bg-green-50 border-green-200 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
                                             {contact.status === 'CALLED' ? (
                                                 <div className="flex flex-col items-center">
@@ -384,16 +384,15 @@ export const VolunteerDashboard = () => {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="flex flex-col">
-                                            <span className="font-extrabold text-slate-800 text-[16px] whitespace-nowrap">{contact.name}</span>
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="font-extrabold text-slate-800 text-[16px] truncate">{contact.name}</span>
                                             <div className="flex items-center gap-1.5 mt-0.5">
                                                 <span className="text-slate-500 text-[12px] font-bold bg-slate-100 px-1.5 py-0.5 rounded whitespace-nowrap">{contact.memberType || '구분없음'}</span>
-                                                <span className="text-slate-500 text-[13px] font-medium truncate max-w-[120px]">{contact.region || '지역 미상'}</span>
                                             </div>
                                         </div>
                                     </div>
                                     
-                                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
                                             <button 
                                                 onClick={() => openContactDetail(contact)}
                                                 className="px-5 py-2.5 bg-[#1e3a8a] text-white hover:bg-[#1e40af] text-[14px] font-black rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 border border-[#1e3a8a]"
