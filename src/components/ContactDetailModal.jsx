@@ -50,6 +50,13 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
     const supportOptions = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
 
     const handleSaveAll = () => {
+        const isContentEmpty = !newRecord.trim() && !supportLevel;
+
+        if (isContentEmpty) {
+            onClose();
+            return;
+        }
+
         let updateData = { supportLevel, status: 'CALLED' };
         
         const now = new Date();
@@ -60,7 +67,6 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
         const recordEntry = `[${dateString}] ${recordText}${supportText}`;
         
         let previousNotes = contact.notes;
-        // Ignore the default test note when appending a real record
         if (previousNotes === '테스트용 데이터입니다.') {
             previousNotes = '';
         }
@@ -78,13 +84,18 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
     };
 
     const handleSaveEdit = () => {
+        const isNotesEmpty = !editForm.notes.trim();
+        const isSupportEmpty = !supportLevel;
+
         const updateData = { 
             name: editForm.name,
             age: editForm.age,
             memberType: editForm.memberType,
             region: editForm.region,
             phone: editForm.phone,
-            notes: editForm.notes
+            notes: editForm.notes,
+            // If both notes and support level are empty, set status back to ASSIGNED
+            status: (isNotesEmpty && isSupportEmpty) ? 'ASSIGNED' : contact.status
         };
         updateContact(contact.id, updateData);
         if (onUpdate) onUpdate({ id: contact.id, ...updateData });

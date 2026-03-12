@@ -572,17 +572,6 @@ export const AdminDashboard = () => {
                                             </div>
                                         </div>
                                         <span className="text-[14px] font-bold text-gray-800 w-8 text-right">{item.value}</span>
-                                        <button 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSupportLevelFilter(item.label.split('. ')[1]); // Get just the label text
-                                                setActiveTab('contacts'); // Switch to contacts tab
-                                                setContactPage(1);
-                                            }}
-                                            className="ml-2 text-[11px] font-bold text-[#1e3a8a] bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors"
-                                        >
-                                            조회
-                                        </button>
                                     </div>
                                 ))}
                             </div>
