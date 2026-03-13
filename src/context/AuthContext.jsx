@@ -59,25 +59,24 @@ export const AuthProvider = ({ children }) => {
                 .from('users')
                 .select('*')
                 .eq('id', authUser.id)
-                .single();
+                .maybeSingle();
 
             if (userData) {
-                // User already linked and found
                 setUser({ ...userData });
                 setLoading(false);
                 return;
             }
 
             // 2. If not found by ID, try finding them by EMAIL (Migration Case)
+            // Use ilike for case-insensitive matching
             const { data: existingByEmail } = await supabase
                 .from('users')
                 .select('*')
-                .eq('email', authUser.email)
-                .single();
+                .ilike('email', authUser.email)
+                .maybeSingle();
 
             if (existingByEmail) {
                 console.log(`Migration: Linking existing user ${authUser.email} to new Supabase ID`);
-                // Update their ID in the users table to match the new Supabase Auth ID
                 const { error: updateError } = await supabase
                     .from('users')
                     .update({ id: authUser.id })
@@ -87,7 +86,8 @@ export const AuthProvider = ({ children }) => {
                     setUser({ ...existingByEmail, id: authUser.id });
                 } else {
                     console.error("Migration ID link failed:", updateError);
-                    setUser(null);
+                    // Fallback to local user even if update fails
+                    setUser({ ...existingByEmail });
                 }
             } else {
                 // 3. Brand New User Creation
@@ -100,7 +100,7 @@ export const AuthProvider = ({ children }) => {
 
                 const newUser = {
                     id: authUser.id,
-                    email: authUser.email,
+                    email: authUser.email.toLowerCase(),
                     name: authUser.user_metadata?.full_name || authUser.email.split('@')[0],
                     role: assignedRole
                 };
@@ -112,6 +112,11 @@ export const AuthProvider = ({ children }) => {
                 if (!insErr) {
                     setUser(newUser);
                 } else {
+                    // If it's a conflict, try to fetch it one last time
+                    if (insErr.code === '23505') {
+                        const { data: retryData } = await supabase.from('users').select('*').eq('id', authUser.id).single();
+                        if (retryData) setUser(retryData);
+                    }
                     console.error("Supabase user creation failed", insErr);
                 }
             }
@@ -123,9 +128,15 @@ export const AuthProvider = ({ children }) => {
     };
 
     const fetchUsers = async () => {
-        const { data, error } = await supabase.from('users').select('*');
-        if (!error) setAllUsers(data || []);
+        try {
+            const { data, error } = await supabase.from('users').select('*');
+            if (!error) setAllUsers(data || []);
+        } catch (e) {
+            console.error("fetchUsers error", e);
+        }
     };
+
+    const getAllUsers = () => allUsers;
 
     // Sync all users for Admins
     useEffect(() => {
