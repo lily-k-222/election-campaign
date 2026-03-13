@@ -245,7 +245,7 @@ export const AuthProvider = ({ children }) => {
         updateUserRole,
         updateUserName,
         addUserManually,
-        allUsers,
+        getAllUsers,
         fetchUsers,
         loading
     };
