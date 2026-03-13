@@ -11,6 +11,13 @@ export const AuthProvider = ({ children }) => {
 
     // Initial Auth State and Listener (Supabase Auth)
     useEffect(() => {
+        const timer = setTimeout(() => {
+            if (loading) {
+                console.warn("Auth check timed out. Force releasing loading state.");
+                setLoading(false);
+            }
+        }, 5000); // 5 second safety limit
+
         const checkSession = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
@@ -23,6 +30,8 @@ export const AuthProvider = ({ children }) => {
             } catch (err) {
                 console.error("Session check failed:", err);
                 setLoading(false);
+            } finally {
+                clearTimeout(timer);
             }
         };
 
