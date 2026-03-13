@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Button } from '../components/Button';
 
 export const LoginView = () => {
     const { login, isAuthenticated } = useAuth();
@@ -11,7 +10,6 @@ export const LoginView = () => {
 
     const from = location.state?.from?.pathname || '/';
 
-    // Auto-redirect when AuthContext registers the user
     useEffect(() => {
         if (isAuthenticated) {
             navigate(from, { replace: true });
@@ -19,12 +17,11 @@ export const LoginView = () => {
     }, [isAuthenticated, navigate, from]);
 
     const handleLogin = async () => {
-        setErrorMsg(''); // clear previous errors
+        setErrorMsg('');
         try {
             await login();
-            // Wait for onAuthStateChanged to trigger the useEffect above
         } catch (error) {
-            console.error('Failed to login with Firebase', error);
+            console.error('Failed to login with Supabase', error);
             setErrorMsg(error.message || '로그인 중 오류가 발생했습니다.');
         }
     };
@@ -36,6 +33,12 @@ export const LoginView = () => {
 
                 <h2 className="text-3xl font-black mb-6 text-center text-[#1e3a8a] tracking-tight">보이스커넥트</h2>
                 <p className="text-center text-slate-500 font-bold mb-8">캠페인 참여를 위해 구글 계정으로 로그인해주세요.</p>
+
+                {errorMsg && (
+                    <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-sm font-bold rounded-xl text-center">
+                        {errorMsg}
+                    </div>
+                )}
 
                 <div className="flex justify-center mb-8">
                     <button 

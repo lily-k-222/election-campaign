@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, googleProvider } from '../firebase';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { supabase } from '../supabase';
 
 // Roles: 'DEVELOPER', 'ADMIN', 'VOLUNTEER', 'UNAUTHORIZED'
@@ -11,116 +9,116 @@ export const AuthProvider = ({ children }) => {
     const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Initial setup: No longer needed for mock users as we moved to Supabase
-
-    // Listen to Auth State
+    // Initial Auth State and Listener (Supabase Auth)
     useEffect(() => {
-        // Safety timeout to prevent infinite hang if Firebase listener doesn't fire
-        const timer = setTimeout(() => {
-            setLoading(false);
-        }, 10000); 
-
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        const checkSession = async () => {
             try {
-                if (firebaseUser) {
-                    // Check user in Supabase
-                    const { data: userData, error: fetchError } = await supabase
-                        .from('users')
-                        .select('*')
-                        .eq('id', firebaseUser.uid)
-                        .single();
-                    
-                    if (fetchError && fetchError.code !== 'PGRST116') {
-                        console.error("Supabase fetch user error:", fetchError);
-                    }
-
-                    if (userData) {
-                        let currentRole = userData.role;
-                        
-                        // Emergency Role Recovery (Implicit)
-                        if ((firebaseUser.email === 'wangjaelee@gmail.com' || firebaseUser.email === 'soomin8454@gmail.com') && 
-                            (!currentRole || currentRole === 'UNAUTHORIZED')) {
-                            const newRole = firebaseUser.email === 'wangjaelee@gmail.com' ? 'ADMIN' : 'DEVELOPER';
-                            const { error: updErr } = await supabase
-                                .from('users')
-                                .update({ role: newRole })
-                                .eq('id', firebaseUser.uid);
-                            
-                            if (!updErr) {
-                                currentRole = newRole;
-                            }
-                        }
-                        
-                        setUser({ id: firebaseUser.uid, ...userData, role: currentRole });
-                    } else {
-                        // Check if user was pre-added by email (Admin Manual Addition)
-                        const { data: preRegistered } = await supabase
-                            .from('users')
-                            .select('*')
-                            .eq('email', firebaseUser.email)
-                            .single();
-
-                        if (preRegistered) {
-                            // Link pre-registered user with their actual Firebase UID
-                            const { error: linkErr } = await supabase
-                                .from('users')
-                                .update({ id: firebaseUser.uid })
-                                .eq('email', firebaseUser.email);
-                            
-                            if (!linkErr) {
-                                setUser({ id: firebaseUser.uid, ...preRegistered });
-                                return;
-                            }
-                        }
-
-                        // Create new user in Supabase
-                        let assignedRole = 'UNAUTHORIZED';
-                        if (firebaseUser.email === 'wangjaelee@gmail.com') {
-                            assignedRole = 'ADMIN';
-                        } else if (firebaseUser.email === 'soomin8454@gmail.com') {
-                            assignedRole = 'DEVELOPER';
-                        }
-
-                        const newUser = {
-                            id: firebaseUser.uid,
-                            email: firebaseUser.email,
-                            name: firebaseUser.displayName || '이름 없음',
-                            role: assignedRole
-                        };
-
-                        const { error: insErr } = await supabase
-                            .from('users')
-                            .insert([newUser]);
-
-                        if (!insErr) {
-                            setUser(newUser);
-                        } else {
-                            console.error("Supabase user creation failed", insErr);
-                        }
-                    }
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    await handleUserSession(session.user);
                 } else {
                     setUser(null);
+                    setLoading(false);
                 }
-            } catch (error) {
-                console.error("Auth state listener error:", error);
-            } finally {
+            } catch (err) {
+                console.error("Session check failed:", err);
                 setLoading(false);
-                clearTimeout(timer);
+            }
+        };
+
+        checkSession();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log("Supabase Auth Event:", event);
+            if (session) {
+                await handleUserSession(session.user);
+            } else {
+                setUser(null);
+                setLoading(false);
             }
         });
 
         return () => {
-            unsubscribe();
-            clearTimeout(timer);
+            subscription.unsubscribe();
         };
     }, []);
+
+    const handleUserSession = async (authUser) => {
+        try {
+            // 1. Check if user exists in our 'users' table by their Supabase Auth ID
+            const { data: userData, error: fetchError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', authUser.id)
+                .single();
+
+            if (userData) {
+                // User already linked and found
+                setUser({ ...userData });
+                setLoading(false);
+                return;
+            }
+
+            // 2. If not found by ID, try finding them by EMAIL (Migration Case)
+            const { data: existingByEmail } = await supabase
+                .from('users')
+                .select('*')
+                .eq('email', authUser.email)
+                .single();
+
+            if (existingByEmail) {
+                console.log(`Migration: Linking existing user ${authUser.email} to new Supabase ID`);
+                // Update their ID in the users table to match the new Supabase Auth ID
+                const { error: updateError } = await supabase
+                    .from('users')
+                    .update({ id: authUser.id })
+                    .eq('email', authUser.email);
+
+                if (!updateError) {
+                    setUser({ ...existingByEmail, id: authUser.id });
+                } else {
+                    console.error("Migration ID link failed:", updateError);
+                    setUser(null);
+                }
+            } else {
+                // 3. Brand New User Creation
+                let assignedRole = 'UNAUTHORIZED';
+                if (authUser.email === 'wangjaelee@gmail.com') {
+                    assignedRole = 'ADMIN';
+                } else if (authUser.email === 'soomin8454@gmail.com') {
+                    assignedRole = 'DEVELOPER';
+                }
+
+                const newUser = {
+                    id: authUser.id,
+                    email: authUser.email,
+                    name: authUser.user_metadata?.full_name || authUser.email.split('@')[0],
+                    role: assignedRole
+                };
+
+                const { error: insErr } = await supabase
+                    .from('users')
+                    .insert([newUser]);
+
+                if (!insErr) {
+                    setUser(newUser);
+                } else {
+                    console.error("Supabase user creation failed", insErr);
+                }
+            }
+        } catch (err) {
+            console.error("User session handling error:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchUsers = async () => {
         const { data, error } = await supabase.from('users').select('*');
         if (!error) setAllUsers(data || []);
     };
 
-    // Sync all users and handle real-time updates (Supabase)
+    // Sync all users for Admins
     useEffect(() => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) {
             setAllUsers([]);
@@ -136,7 +134,6 @@ export const AuthProvider = ({ children }) => {
                     setAllUsers(prev => [...prev, payload.new]);
                 } else if (payload.eventType === 'UPDATE') {
                     setAllUsers(prev => prev.map(u => u.id === payload.new.id ? payload.new : u));
-                    // If current logged in user's role changed, update their local state
                     if (payload.new.id === user.id) {
                         setUser(prev => ({ ...prev, role: payload.new.role }));
                     }
@@ -153,130 +150,71 @@ export const AuthProvider = ({ children }) => {
 
     const login = async () => {
         try {
-            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-            const isKakao = /KAKAOTALK/i.test(userAgent);
-            const isInApp = /Instagram|NAVER|Line|Daum|MicroMessenger/i.test(userAgent);
-            
-            if (isKakao) {
-                window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(window.location.href)}`;
-                throw new Error("REDIRECTING_TO_EXTERNAL_BROWSER");
-            } else if (isInApp) {
-                alert("앱 내부 브라우저에서는 구글 보안 정책상 로그인이 차단됩니다.\n현재 화면의 링크 주소를 복사하신 후, 인터넷 브라우저(크롬, 사파리, 삼성 인터넷 등) 주소창에 붙여넣어 접속해주세요.");
-                if (/android/i.test(userAgent)) {
-                    const url = window.location.href.replace(/^https?:\/\//i, '');
-                    window.location.href = `intent://${url}#Intent;scheme=https;package=com.android.chrome;end`;
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin
                 }
-                throw new Error("IN_APP_BROWSER");
-            }
-
-            await signInWithPopup(auth, googleProvider);
+            });
+            if (error) throw error;
         } catch (error) {
-            console.error("Login failed", error);
+            console.error("Supabase Login failed", error);
             throw error;
         }
     };
 
     const logout = async () => {
-        await signOut(auth);
+        await supabase.auth.signOut();
+        setUser(null);
     };
 
     const updateUserName = async (userId, newName) => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return;
-        
         try {
-            const { error } = await supabase
-                .from('users')
-                .update({ name: newName })
-                .eq('id', userId);
-            
-            if (error) {
-                console.error("Supabase name update error:", error);
-                return { success: false, error };
-            }
+            const { error } = await supabase.from('users').update({ name: newName }).eq('id', userId);
+            if (error) return { success: false, error };
             return { success: true };
         } catch (error) {
-            console.error("Failed to update name", error);
             return { success: false, error };
         }
     };
 
     const updateUserRole = async (userId, newRole) => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return { success: false, error: 'Unauthorized' };
-        
         try {
-            const { error } = await supabase
-                .from('users')
-                .update({ role: newRole })
-                .eq('id', userId);
-            
-            if (error) {
-                console.error("Supabase update error:", error);
-                return { success: false, error };
-            }
+            const { error } = await supabase.from('users').update({ role: newRole }).eq('id', userId);
+            if (error) return { success: false, error };
             return { success: true };
         } catch (error) {
-            console.error("Failed to update role", error);
             return { success: false, error };
         }
     };
 
     const addUserManually = async (email, name, role = 'VOLUNTEER') => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return { success: false, error: 'Unauthorized' };
-        
         try {
             const normalizedEmail = email.toLowerCase().trim();
-            console.log(`AuthContext: Manually adding/updating user ${normalizedEmail} with role ${role}`);
-
-            // Check if user already exists (case-insensitive)
-            const { data: existing, error: findError } = await supabase
-                .from('users')
-                .select('*')
-                .ilike('email', normalizedEmail)
-                .maybeSingle();
+            const { data: existing } = await supabase.from('users').select('*').ilike('email', normalizedEmail).maybeSingle();
             
-            if (findError) {
-                console.error("AuthContext: Error checking for existing user:", findError);
-            }
-
             if (existing) {
-                console.log(`AuthContext: User ${normalizedEmail} found with current role ${existing.role}`);
-                // If user is rejected or pending, allow reactivation
                 if (existing.role === 'REJECTED' || existing.role === 'UNAUTHORIZED') {
-                    const { error } = await supabase
-                        .from('users')
-                        .update({ role, name })
-                        .eq('id', existing.id);
-                    
-                    if (error) {
-                        console.error("AuthContext: Failed to reactivate user:", error);
-                        throw error;
-                    }
-                    console.log(`AuthContext: User ${normalizedEmail} reactivated successfully`);
+                    await supabase.from('users').update({ role, name }).eq('id', existing.id);
                     return { success: true };
                 }
                 return { success: false, error: '이미 사용 중인 이메일입니다.' };
             }
 
-            const { error: insError } = await supabase.from('users').insert([{
-                id: `pending:${Date.now()}`, // Temporary ID
+            await supabase.from('users').insert([{
+                id: `pending:${Date.now()}`,
                 email: normalizedEmail,
                 name,
                 role
             }]);
-
-            if (insError) {
-                console.error("AuthContext: Failed to insert new manual user:", insError);
-                throw insError;
-            }
-            console.log(`AuthContext: New user ${normalizedEmail} added successfully`);
             return { success: true };
         } catch (error) {
-            console.error("Manual user addition failed:", error);
-            return { success: false, error: error.message || '사용자 추가에 실패했습니다.' };
+            return { success: false, error: error.message };
         }
     };
-
-    const getAllUsers = () => allUsers;
 
     const value = {
         user,
@@ -288,7 +226,6 @@ export const AuthProvider = ({ children }) => {
         updateUserName,
         addUserManually,
         allUsers,
-        getAllUsers,
         fetchUsers,
         loading
     };
