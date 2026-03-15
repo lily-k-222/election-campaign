@@ -38,7 +38,11 @@ async function applyRLS() {
 
         -- 3. Define new policies
         -- users: Users read own, Admins read/update all
-        CREATE POLICY "Users can read their own profile" ON public.users FOR SELECT USING (auth.uid()::text = id);
+        CREATE POLICY "Users can read their own profile" ON public.users FOR SELECT USING (auth.uid()::text = id OR (auth.jwt() ->> 'email' = email));
+        CREATE POLICY "Users can update their own profile during migration" ON public.users FOR UPDATE 
+            USING (auth.jwt() ->> 'email' = email)
+            WITH CHECK (auth.jwt() ->> 'email' = email);
+            
         CREATE POLICY "Admins can read all profiles" ON public.users FOR SELECT USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid()::text AND role IN ('ADMIN', 'DEVELOPER')));
         CREATE POLICY "Admins can update all profiles" ON public.users FOR UPDATE USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid()::text AND role IN ('ADMIN', 'DEVELOPER')));
 

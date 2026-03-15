@@ -34,7 +34,7 @@ export const Header = () => {
                                 {user.role === 'SUPER_ADMIN' ? '슈퍼 관리자' :
                                     user.role === 'DEVELOPER' ? '개발자' :
                                         user.role === 'ADMIN' ? '관리자' :
-                                            user.role === 'VOLUNTEER' ? '자원봉사자' : '승인 대기중'}
+                                            user.role === 'VOLUNTEER' ? '담당자' : '승인 대기중'}
                             </span>
                         </div>
                     </div>

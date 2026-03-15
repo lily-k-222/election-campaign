@@ -149,20 +149,20 @@ export const VolunteerDashboard = () => {
     // --- Admin Volunteer Selector UI ---
     if (isAdmin && !selectedVolunteerId) {
         const allUsers = getAllUsers ? getAllUsers() : [];
-        const volunteers = allUsers.filter(u => u.role === 'VOLUNTEER');
-        const filteredVols = volunteers.filter(v => v.name.includes(adminSearchQuery));
+        const assignableUsers = allUsers.filter(u => u.role !== 'REJECTED' && u.role !== 'UNAUTHORIZED' && u.role !== 'DEVELOPER');
+        const filteredVols = assignableUsers.filter(v => v.name.includes(adminSearchQuery));
 
         return (
             <div className="flex flex-col w-full h-full font-sans bg-[#e8edf2] overflow-y-auto">
                 <div className="bg-[#1e3a8a] text-white px-8 py-6 pb-8 shadow-md">
                     <div className="max-w-[800px] mx-auto w-full">
-                        <h1 className="text-2xl font-black mb-1">자원봉사자 대시보드 열람</h1>
-                        <p className="text-blue-200 font-bold">진행 상황을 확인할 자원봉사자를 검색하고 선택해주세요.</p>
+                        <h1 className="text-2xl font-black mb-1">담당자 대시보드 열람</h1>
+                        <p className="text-blue-200 font-bold">진행 상황을 확인할 담당자를 검색하고 선택해주세요.</p>
                     </div>
                 </div>
                 <div className="max-w-[800px] mx-auto w-full px-8 mt-6 flex flex-col gap-6 pb-12">
                     <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-6 flex flex-col relative z-20">
-                        <h2 className="text-[16px] font-extrabold text-slate-800 tracking-tight mb-3">자원봉사자 검색 및 선택</h2>
+                        <h2 className="text-[16px] font-extrabold text-slate-800 tracking-tight mb-3">담당자 검색 및 선택</h2>
                         <div className="relative mb-4">
                             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input
@@ -175,7 +175,7 @@ export const VolunteerDashboard = () => {
                         </div>
                         <div className="grid gap-2">
                             {filteredVols.length === 0 ? (
-                                <p className="text-center text-slate-500 font-bold py-4">등록된/검색된 자원봉사자가 없습니다.</p>
+                                <p className="text-center text-slate-500 font-bold py-4">등록된/검색된 담당자가 없습니다.</p>
                             ) : (
                                 filteredVols.map(v => (
                                     <button
@@ -189,7 +189,7 @@ export const VolunteerDashboard = () => {
                                             </div>
                                             <div className="flex flex-col items-start">
                                                 <span className="font-extrabold text-[16px] text-slate-800">{v.name}</span>
-                                                <span className="text-[13px] text-slate-500 font-medium">자원봉사자</span>
+                                                <span className="text-[13px] text-slate-500 font-medium">{v.role === 'ADMIN' ? '관리자' : '담당자'}</span>
                                             </div>
                                         </div>
                                         <div className="text-[#1e3a8a] font-bold text-[13px] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -214,7 +214,7 @@ export const VolunteerDashboard = () => {
                 <div className="max-w-[800px] mx-auto w-full relative flex justify-between items-center">
                     <div>
                         <h1 className="text-xl font-black mb-1">
-                            {isAdmin ? `${targetUser?.name}님의 화면` : `${currentUser.name} 봉사자님`}
+                            {isAdmin ? `${targetUser?.name}님의 화면` : `${currentUser.name} 담당자님`}
                         </h1>
                         <p className="text-[13px] text-blue-200 font-bold">
                             {isAdmin ? "관리자 권한 열람 중" : "오늘도 선거 승리를 위해 힘찬 하루 되세요!"}

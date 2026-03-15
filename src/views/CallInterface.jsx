@@ -50,7 +50,7 @@ export const CallInterface = ({ contact, onClose }) => {
                 <div className="p-4 bg-gray-50 rounded-lg mb-6 border border-gray-100">
                     <p className="font-medium mb-2 text-sm text-gray-700">스크립트 가이드:</p>
                     <p className="text-gray-600 leading-relaxed text-sm">
-                        "안녕하세요, 당원님. 저는 김보미 후보 선거 캠프 자원봉사자입니다.
+                        "안녕하세요, 당원님. 저는 김보미 후보 선거 캠프 담당자입니다.
                         이번 선거에서 김보미 후보에 대해 어떻게 생각하시는지 간단한 여론을 여쭙고 있습니다."
                     </p>
                 </div>

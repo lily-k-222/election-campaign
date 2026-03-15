@@ -27,8 +27,7 @@ export const AdminDashboard = () => {
         loading: contextLoading
     } = useCampaign();
 
-    const { getAllUsers, updateUserRole, updateUserName, addUserManually, fetchUsers, user: currentUser } = useAuth();
-    const users = getAllUsers(); // Fix ReferenceError
+    const { users, updateUserRole, updateUserName, addUserManually, fetchUsers, user: currentUser } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('campaign'); // 'campaign' or 'users' or 'contacts'
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -181,16 +180,19 @@ export const AdminDashboard = () => {
         loadContacts();
     }, [activeTab, contactPage, contactSearchTerm, volunteerFilter, statusFilter, supportLevelFilter]);
 
-    // Volunteers are users with VOLUNTEER role
-    const volunteers = users.filter(u => u.role === 'VOLUNTEER');
-    // Unauthorized users waiting for approval
+    // Assignable users are all registered users except rejected or unauthorized
+    const assignableUsers = users.filter(u => u.role !== 'REJECTED' && u.role !== 'UNAUTHORIZED' && u.role !== 'DEVELOPER');
+    // For specific "pending" view
     const pendingUsers = users.filter(u => u.role === 'UNAUTHORIZED');
 
-    // Pre-calculate volunteer stats and sort
-    const volunteersWithStats = volunteers.map(v => ({
+    // Pre-calculate assignee stats and sort
+    // List of users who can have contacts assigned (Admins + Volunteers)
+    const assigneesWithStats = assignableUsers.map(v => ({
         ...v,
         stats: volunteerStatsMap[v.id] || { completed: 0, total: 0, progress: 0 }
-    })).sort((a, b) => b.stats.completed - a.stats.completed);
+    })).sort((a, b) => b.stats.completed - a.stats.completed); // Sort by performance
+
+    const managersWithStats = assigneesWithStats; // Admins are also managers/assignees now
 
     const stats = campaignStats;
     const progressPercent = stats.total === 0 ? "0" : ((stats.completed / stats.total) * 100).toFixed(2);
@@ -317,7 +319,7 @@ export const AdminDashboard = () => {
 
     const handleAssign = async () => {
         if (!selectedVolunteer) {
-            showDialog('alert', '안내', '할당할 자원봉사자를 먼저 선택해주세요.');
+            showDialog('alert', '안내', '할당할 담당자를 먼저 선택해주세요.');
             return;
         }
         await assignQuota(selectedVolunteer, assignCount);
@@ -366,7 +368,7 @@ export const AdminDashboard = () => {
         
         const res = await addUserManually(newUserForm.email, newUserForm.name, newUserForm.role);
         if (res.success) {
-            showDialog('alert', '추가 완료', `${newUserForm.name} 회원을 ${newUserForm.role === 'ADMIN' ? '관리자' : '자원봉사자'} 권한으로 등록했습니다.`);
+            showDialog('alert', '추가 완료', `${newUserForm.name} 회원을 ${newUserForm.role === 'ADMIN' ? '관리자' : '담당자'} 권한으로 등록했습니다.`);
             setIsAddUserModalOpen(false);
             setNewUserForm({ email: '', name: '', role: 'VOLUNTEER' });
             fetchUsers();
@@ -417,10 +419,10 @@ export const AdminDashboard = () => {
 
     const handleBulkReassign = () => {
         if (!bulkAssignVolunteer) {
-            showDialog('alert', '안내', '할당할 자원봉사자를 선택해주세요.');
+            showDialog('alert', '안내', '할당할 담당자를 선택해주세요.');
             return;
         }
-        showDialog('confirm', '일괄 할당', `선택한 ${selectedContacts.length}명의 연락처를 지정한 자원봉사자에게 할당하시겠습니까?`, async () => {
+        showDialog('confirm', '일괄 할당', `선택한 ${selectedContacts.length}명의 연락처를 지정한 담당자에게 할당하시겠습니까?`, async () => {
             const res = await reassignContacts(selectedContacts, bulkAssignVolunteer);
             if (res && res.success) {
                 setSelectedContacts([]);
@@ -477,7 +479,7 @@ export const AdminDashboard = () => {
                     onClick={() => navigate('/volunteer')}
                     className="px-6 py-2.5 font-bold rounded-t-lg transition-colors border-x border-t z-10 -mb-px text-[15px] bg-blue-50 text-[#1e3a8a] border-blue-200 hover:bg-blue-100 flex items-center gap-2"
                 >
-                    자원봉사자 화면 열람 
+                    담당자 화면 열람 
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 </button>
             </div>
@@ -630,7 +632,7 @@ export const AdminDashboard = () => {
                                 {/* Right side */}
                                 <div className="flex-1 flex flex-col justify-between pt-1">
                                     <div>
-                                        <span className="text-[14px] font-bold text-gray-800 block mb-2 tracking-tight">자원봉사자 선택</span>
+                                        <span className="text-[14px] font-bold text-gray-800 block mb-2 tracking-tight">담당자 선택</span>
                                         
                                         <div className="relative mb-3">
                                             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -640,8 +642,8 @@ export const AdminDashboard = () => {
                                                 onChange={(e) => setSelectedVolunteer(e.target.value)}
                                             >
                                                 <option value="" disabled hidden>Q 이름 검색</option>
-                                                {volunteers.map(v => (
-                                                    <option key={v.id} value={v.id}>{v.name}</option>
+                                                {assignableUsers.map(v => (
+                                                    <option key={v.id} value={v.id}>{v.name} ({v.role === 'ADMIN' ? '관리자' : '담당자'})</option>
                                                 ))}
                                             </select>
                                             <SlidersHorizontal size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
@@ -649,7 +651,7 @@ export const AdminDashboard = () => {
                                         
                                         {selectedVolunteer && (
                                             <div className="inline-flex items-center px-4 py-1.5 bg-[#e8edf2] rounded-md text-[14px] font-extrabold text-gray-800 w-auto">
-                                                {volunteers.find(v => v.id === selectedVolunteer)?.name}
+                                                {assignableUsers.find(v => v.id === selectedVolunteer)?.name}
                                             </div>
                                         )}
                                     </div>
@@ -668,13 +670,13 @@ export const AdminDashboard = () => {
                             </div>
                         </div>
 
-                        {/* Card 4: 자원봉사자별 현황 */}
+                        {/* Card 4: 담당자별 현황 */}
                         <div 
                             onClick={() => setActiveTab('volunteers')}
                             className="bg-white rounded-[24px] shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 p-7 flex flex-col cursor-pointer hover:bg-slate-50 relative"
                         >
                             <div className="flex justify-between items-center mb-5">
-                                <h2 className="text-[20px] font-extrabold text-slate-800 tracking-tight whitespace-nowrap">자원봉사자별 현황 (TOP 3)</h2>
+                                <h2 className="text-[20px] font-extrabold text-slate-800 tracking-tight whitespace-nowrap">담당자별 현황 (TOP 3)</h2>
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); loadStats(); }}
                                     className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-[#1e3a8a]"
@@ -695,10 +697,10 @@ export const AdminDashboard = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="text-[14px]">
-                                        {volunteersWithStats.length === 0 && (
-                                            <tr><td colSpan="5" className="p-6 text-center text-gray-500 font-medium">등록된 자원봉사자가 없습니다.</td></tr>
+                                        {assigneesWithStats.length === 0 && (
+                                            <tr><td colSpan="5" className="p-6 text-center text-gray-500 font-medium">등록된 담당자가 없습니다.</td></tr>
                                         )}
-                                        {volunteersWithStats.slice(0, 3).map(v => {
+                                        {assigneesWithStats.slice(0, 3).map(v => {
                                             const vStats = v.stats;
                                             const isDone = vStats.total > 0 && vStats.progress === 100;
                                             const isPending = vStats.total === 0;
@@ -761,13 +763,13 @@ export const AdminDashboard = () => {
                             <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 flex flex-col">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
                                     <h2 className="text-[20px] font-extrabold text-slate-800 flex items-center gap-2 border-l-4 border-[#1e3a8a] pl-3 tracking-tight">
-                                        자원봉사자 전체 명단 ({volunteersWithStats.length}명)
+                                        담당자 전체 명단 ({assigneesWithStats.length}명)
                                     </h2>
                                     <div className="relative w-full sm:w-64">
                                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                         <input 
                                             type="text"
-                                            placeholder="자원봉사자 이름 검색"
+                                            placeholder="담당자 이름 검색"
                                             className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20"
                                             value={volunteerSearchTerm}
                                             onChange={e => setVolunteerSearchTerm(e.target.value)}
@@ -788,15 +790,15 @@ export const AdminDashboard = () => {
                                         </thead>
                                         <tbody className="text-[14px]">
                                             {(() => {
-                                                const filteredVolunteers = volunteerSearchTerm 
-                                                    ? volunteersWithStats.filter(v => v.name.includes(volunteerSearchTerm))
-                                                    : volunteersWithStats;
+                                                const filteredManagers = volunteerSearchTerm 
+                                                    ? managersWithStats.filter(v => v.name.includes(volunteerSearchTerm))
+                                                    : managersWithStats;
 
-                                                if (filteredVolunteers.length === 0) {
-                                                    return <tr><td colSpan="5" className="p-6 text-center text-gray-500 font-medium bg-gray-50/50">검색된 자원봉사자가 없습니다.</td></tr>;
+                                                if (filteredManagers.length === 0) {
+                                                    return <tr><td colSpan="5" className="p-6 text-center text-gray-500 font-medium bg-gray-50/50">검색된 담당자가 없습니다.</td></tr>;
                                                 }
 
-                                                return filteredVolunteers.map(v => {
+                                                return filteredManagers.map(v => {
                                                     const vStats = v.stats;
                                                     const isDone = vStats.total > 0 && vStats.progress === 100;
                                                     const isPending = vStats.total === 0;
@@ -888,7 +890,7 @@ export const AdminDashboard = () => {
                                                     </div>
                                                     <div className="flex gap-2">
                                                         <button className="px-4 py-2 bg-white border border-red-200 text-red-600 font-bold rounded-lg text-sm hover:bg-red-50 transition-colors" onClick={() => handleRoleUpdate(user.id, user.name, 'REJECTED')}>거절</button>
-                                                        <button className="px-4 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-bold rounded-lg text-sm transition-colors" onClick={() => handleRoleUpdate(user.id, user.name, 'VOLUNTEER')}>자원봉사자 승인</button>
+                                                        <button className="px-4 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-bold rounded-lg text-sm transition-colors" onClick={() => handleRoleUpdate(user.id, user.name, 'VOLUNTEER')}>담당자 승인</button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -917,7 +919,7 @@ export const AdminDashboard = () => {
                                             >
                                                 <option value="ALL">전체 권한</option>
                                                 <option value="ADMIN">관리자</option>
-                                                <option value="VOLUNTEER">자원봉사자</option>
+                                                <option value="VOLUNTEER">담당자</option>
                                                 <option value="REJECTED">권한 해제됨</option>
                                             </select>
                                         </div>
@@ -1005,7 +1007,7 @@ export const AdminDashboard = () => {
                                                                         <button 
                                                                             onClick={() => handleRoleUpdate(user.id, user.name, 'VOLUNTEER')}
                                                                             className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'VOLUNTEER' ? 'bg-[#1e3a8a] text-white shadow-sm scale-100' : 'text-slate-500 hover:text-slate-800 scale-95 hover:bg-slate-200/50'}`}
-                                                                        >자원봉사자</button>
+                                                                        >담당자</button>
                                                                         <button 
                                                                             onClick={() => handleRoleUpdate(user.id, user.name, 'REJECTED')}
                                                                             className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'REJECTED' ? 'bg-red-100 text-red-600' : 'text-slate-400 hover:text-red-500 scale-95 hover:bg-red-50'}`}
@@ -1094,7 +1096,7 @@ export const AdminDashboard = () => {
                                             >
                                                 <option value="ALL">전체 담당자</option>
                                                 <option value="UNASSIGNED">미할당 연락처</option>
-                                                {volunteers.map(v => (
+                                                {assignableUsers.map(v => (
                                                     <option key={v.id} value={v.id}>{v.name}</option>
                                                 ))}
                                             </select>
@@ -1208,9 +1210,9 @@ export const AdminDashboard = () => {
                                                 value={bulkAssignVolunteer}
                                                 onChange={(e) => setBulkAssignVolunteer(e.target.value)}
                                             >
-                                                <option value="" disabled hidden>담당할 자원봉사자 선택</option>
+                                                <option value="" disabled hidden>담당자 선택 (일괄)</option>
                                                 <option value="UNASSIGNED">-- 담당자 지정 해제 --</option>
-                                                {volunteers.map(v => (
+                                                {assignableUsers.map(v => (
                                                     <option key={v.id} value={v.id}>{v.name}</option>
                                                 ))}
                                             </select>
@@ -1252,7 +1254,7 @@ export const AdminDashboard = () => {
                                                 <tr><td colSpan="11" className="p-16 text-center text-gray-500 font-medium bg-gray-50/50">등록되거나 검색된 연락처가 없습니다.</td></tr>
                                             ) : (
                                                 contactData.map(contact => {
-                                                    const assignedVolunteer = volunteers.find(v => v.id === contact.assignedTo);
+                                                    const assignedVolunteer = assignableUsers.find(v => v.id === contact.assignedTo);
                                                     const isSelected = selectedContacts.includes(contact.id);
                                                     return (
                                                         <tr key={contact.id} className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors ${isSelected ? 'bg-blue-50/30' : ''}`}>
@@ -1360,7 +1362,7 @@ export const AdminDashboard = () => {
                                 <textarea 
                                     rows="5"
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1e3a8a]/20 outline-none font-bold"
-                                    placeholder="자원봉사자분들께 전달할 내용을 입력하세요"
+                                    placeholder="담당자분들께 전달할 내용을 입력하세요"
                                     value={announcementForm.content}
                                     onChange={e => setAnnouncementForm(prev => ({ ...prev, content: e.target.value }))}
                                 ></textarea>
@@ -1454,7 +1456,7 @@ export const AdminDashboard = () => {
                                     <button 
                                         onClick={() => setNewUserForm(prev => ({ ...prev, role: 'VOLUNTEER' }))}
                                         className={`flex-1 py-3 px-4 rounded-[14px] text-sm font-black transition-all ${newUserForm.role === 'VOLUNTEER' ? 'bg-[#1e3a8a] text-white shadow-md scale-[1.02]' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >자원봉사자</button>
+                                    >담당자</button>
                                     <button 
                                         onClick={() => setNewUserForm(prev => ({ ...prev, role: 'ADMIN' }))}
                                         className={`flex-1 py-3 px-4 rounded-[14px] text-sm font-black transition-all ${newUserForm.role === 'ADMIN' ? 'bg-[#1e3a8a] text-white shadow-md scale-[1.02]' : 'text-slate-500 hover:text-slate-700'}`}

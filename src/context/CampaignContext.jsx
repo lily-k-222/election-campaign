@@ -47,14 +47,14 @@ export const CampaignProvider = ({ children }) => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
 
-    // Real-time listener for Volunteers
+    // Real-time listener for current user's assignments (Managers/Assignees)
     useEffect(() => {
         if (!user) {
             setContacts([]);
             return;
         }
 
-        // Volunteers only fetch their assigned contacts
+        // Fetch contacts assigned to the current user
         const fetchMyContacts = async () => {
             // Everyone can have assigned contacts to call
             const { data, error } = await supabase
@@ -328,28 +328,38 @@ export const CampaignProvider = ({ children }) => {
 
     const fetchAllVolunteerStats = async (volunteerIds) => {
         if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return {};
+        if (!volunteerIds || volunteerIds.length === 0) return {};
         
         try {
-            const { data, error } = await supabase
-                .from('contacts')
-                .select('assigned_to, status')
-                .in('assigned_to', volunteerIds);
-
-            if (error) throw error;
-
-            const statsMap = {};
-            volunteerIds.forEach(vid => {
-                const assigned = data.filter(c => c.assigned_to === vid);
-                const completed = assigned.filter(c => c.status === 'CALLED').length;
-                const total = assigned.length;
-                statsMap[vid] = {
-                    total,
-                    completed,
-                    remaining: total - completed,
-                    progress: total === 0 ? 0 : ((completed / total) * 100).toFixed(2)
-                };
-            });
+            // Using a single RPC call or multiple counts to avoid fetching thousands of rows
+            // For now, let's use a more efficient grouping query if possible, 
+            // but standard Supabase JS grouping is limited.
+            // Alternative: Fetch counts per user.
             
+            const statsMap = {};
+            const promises = volunteerIds.map(async (vid) => {
+                const { count: total, error: e1 } = await supabase
+                    .from('contacts')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('assigned_to', vid);
+                
+                const { count: completed, error: e2 } = await supabase
+                    .from('contacts')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('assigned_to', vid)
+                    .eq('status', 'CALLED');
+
+                if (!e1 && !e2) {
+                    statsMap[vid] = {
+                        total: total || 0,
+                        completed: completed || 0,
+                        remaining: (total || 0) - (completed || 0),
+                        progress: total === 0 ? 0 : ((completed / total) * 100).toFixed(0)
+                    };
+                }
+            });
+
+            await Promise.all(promises);
             return statsMap;
         } catch (error) {
             console.error("Failed to fetch all volunteer stats:", error);

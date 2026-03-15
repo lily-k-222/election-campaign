@@ -57,7 +57,7 @@ export const LoginView = () => {
 
                 <div className="flex items-center gap-4 mb-4">
                     <div className="h-px bg-slate-100 flex-1"></div>
-                    <span className="text-[12px] font-bold text-slate-400">자원봉사자 & 관리자 전용</span>
+                    <span className="text-[12px] font-bold text-slate-400">담당자 & 관리자 전용</span>
                     <div className="h-px bg-slate-100 flex-1"></div>
                 </div>
             </div>

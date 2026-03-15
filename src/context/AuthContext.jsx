@@ -18,38 +18,36 @@ export const AuthProvider = ({ children }) => {
             }
         }, 5000); // 5 second safety limit
 
-        const checkSession = async () => {
+        const initAuth = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
+                if (session?.user) {
                     await handleUserSession(session.user);
-                } else {
-                    setUser(null);
-                    setLoading(false);
                 }
             } catch (err) {
-                console.error("Session check failed:", err);
-                setLoading(false);
+                console.error("Auth initialization error:", err);
             } finally {
-                clearTimeout(timer);
+                setLoading(false);
             }
         };
 
-        checkSession();
+        initAuth();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log("Supabase Auth Event:", event);
-            if (session) {
-                await handleUserSession(session.user);
-            } else {
+            console.log("Auth State Changed:", event, session?.user?.email);
+            
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || (event === 'INITIAL_SESSION' && session)) {
+                if (session?.user) {
+                    await handleUserSession(session.user);
+                }
+            } else if (event === 'SIGNED_OUT') {
                 setUser(null);
-                setLoading(false);
+                setAllUsers([]);
             }
+            setLoading(false);
         });
 
-        return () => {
-            subscription.unsubscribe();
-        };
+        return () => subscription.unsubscribe();
     }, []);
 
     const handleUserSession = async (authUser) => {
@@ -238,6 +236,7 @@ export const AuthProvider = ({ children }) => {
 
     const value = {
         user,
+        users: allUsers, // Export reactively
         login,
         logout,
         isAuthenticated: !!user,
