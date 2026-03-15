@@ -11,43 +11,36 @@ export const AuthProvider = ({ children }) => {
 
     // Initial Auth State and Listener (Supabase Auth)
     useEffect(() => {
-        const timer = setTimeout(() => {
-            if (loading) {
-                console.warn("Auth check timed out. Force releasing loading state.");
-                setLoading(false);
-            }
-        }, 5000); // 5 second safety limit
-
-        const initAuth = async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user) {
-                    await handleUserSession(session.user);
-                }
-            } catch (err) {
-                console.error("Auth initialization error:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        initAuth();
-
+        let isInitialCheck = true;
+        
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log("Auth State Changed:", event, session?.user?.email);
             
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || (event === 'INITIAL_SESSION' && session)) {
-                if (session?.user) {
-                    await handleUserSession(session.user);
-                }
-            } else if (event === 'SIGNED_OUT') {
+            if (session?.user) {
+                // If we have a session, fetch/sync profile
+                await handleUserSession(session.user);
+            } else {
+                // No session
                 setUser(null);
                 setAllUsers([]);
+                setLoading(false);
             }
-            setLoading(false);
+            
+            if (isInitialCheck) {
+                isInitialCheck = false;
+                setLoading(false);
+            }
         });
 
-        return () => subscription.unsubscribe();
+        // Safety timeout to ensure loading screen doesn't hang forever
+        const timeout = setTimeout(() => {
+            setLoading(false);
+        }, 8000);
+
+        return () => {
+            subscription.unsubscribe();
+            clearTimeout(timeout);
+        };
     }, []);
 
     const handleUserSession = async (authUser) => {
