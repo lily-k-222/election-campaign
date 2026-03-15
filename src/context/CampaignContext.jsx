@@ -331,35 +331,40 @@ export const CampaignProvider = ({ children }) => {
         if (!volunteerIds || volunteerIds.length === 0) return {};
         
         try {
-            // Using a single RPC call or multiple counts to avoid fetching thousands of rows
-            // For now, let's use a more efficient grouping query if possible, 
-            // but standard Supabase JS grouping is limited.
-            // Alternative: Fetch counts per user.
+            // OPTIMIZATION: Instead of 2*N queries, fetch all assigned contacts once
+            // and aggregate in memory. For 7-10k contacts, this is vastly faster (hundreds of ms vs 20s).
+            const { data, error } = await supabase
+                .from('contacts')
+                .select('assigned_to, status')
+                .not('assigned_to', 'is', null)
+                .in('assigned_to', volunteerIds);
             
-            const statsMap = {};
-            const promises = volunteerIds.map(async (vid) => {
-                const { count: total, error: e1 } = await supabase
-                    .from('contacts')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('assigned_to', vid);
-                
-                const { count: completed, error: e2 } = await supabase
-                    .from('contacts')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('assigned_to', vid)
-                    .eq('status', 'CALLED');
+            if (error) throw error;
 
-                if (!e1 && !e2) {
-                    statsMap[vid] = {
-                        total: total || 0,
-                        completed: completed || 0,
-                        remaining: (total || 0) - (completed || 0),
-                        progress: total === 0 ? 0 : ((completed / total) * 100).toFixed(0)
-                    };
+            const statsMap = {};
+            // Initialize for all requested IDs
+            volunteerIds.forEach(vid => {
+                statsMap[vid] = { total: 0, completed: 0, remaining: 0, progress: 0 };
+            });
+
+            // Aggregate
+            (data || []).forEach(contact => {
+                const vid = contact.assigned_to;
+                if (statsMap[vid]) {
+                    statsMap[vid].total++;
+                    if (contact.status === 'CALLED') {
+                        statsMap[vid].completed++;
+                    }
                 }
             });
 
-            await Promise.all(promises);
+            // Final calculation
+            volunteerIds.forEach(vid => {
+                const s = statsMap[vid];
+                s.remaining = s.total - s.completed;
+                s.progress = s.total === 0 ? 0 : ((s.completed / s.total) * 100).toFixed(0);
+            });
+
             return statsMap;
         } catch (error) {
             console.error("Failed to fetch all volunteer stats:", error);
@@ -369,31 +374,36 @@ export const CampaignProvider = ({ children }) => {
 
     const getCampaignStats = async () => {
         try {
-            const { count: total } = await supabase.from('contacts').select('*', { count: 'exact', head: true });
-            const { count: completed } = await supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('status', 'CALLED');
-            const { count: unassigned } = await supabase.from('contacts').select('*', { count: 'exact', head: true }).is('assigned_to', null);
+            // OPTIMIZATION: Fetch relevant columns and aggregate in JS to avoid 8+ network calls
+            const { data, error } = await supabase
+                .from('contacts')
+                .select('status, support_level, assigned_to');
+            
+            if (error) throw error;
 
-            // Fetch survey results breakdown
-            const supportOptions = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
-            const results = {};
-            
-            // We can do this with a single query using count if we use a better approach, 
-            // but for simplicity and reliability with current schema, let's do parallel counts or a select with filter.
-            // Actually, we can fetch all called contacts and aggregate if the number is small, 
-            // but since we have a counts tool, let's use it for accuracy.
-            
-            await Promise.all(supportOptions.map(async (option) => {
-                const { count } = await supabase
-                    .from('contacts')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('support_level', option);
-                results[option] = count || 0;
-            }));
+            const total = data.length;
+            let completed = 0;
+            let unassigned = 0;
+            const results = {
+                '강하게 지지': 0,
+                '약하게 지지': 0,
+                '관심없음': 0,
+                '지지하지 않음': 0,
+                '다른후보 지지': 0
+            };
+
+            data.forEach(c => {
+                if (c.status === 'CALLED') completed++;
+                if (!c.assigned_to) unassigned++;
+                if (c.support_level && results[c.support_level] !== undefined) {
+                    results[c.support_level]++;
+                }
+            });
 
             return { 
-                total: total || 0, 
-                completed: completed || 0, 
-                unassigned: unassigned || 0, 
+                total, 
+                completed, 
+                unassigned, 
                 surveyCount: Object.values(results).reduce((a, b) => a + b, 0), 
                 results 
             };

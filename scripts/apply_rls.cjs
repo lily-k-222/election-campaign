@@ -37,25 +37,29 @@ async function applyRLS() {
         DROP POLICY IF EXISTS "Admin write for announcements" ON public.announcements;
 
         -- 3. Define new policies
-        -- users: Users read own, Admins read/update all
-        CREATE POLICY "Users can read their own profile" ON public.users FOR SELECT USING (auth.uid()::text = id OR (auth.jwt() ->> 'email' = email));
+        -- users: Authenticated can read all (to see manager lists), but only own profile for update
+        CREATE POLICY "Allow authenticated read users" ON public.users FOR SELECT TO authenticated USING (true);
         CREATE POLICY "Users can update their own profile during migration" ON public.users FOR UPDATE 
-            USING (auth.jwt() ->> 'email' = email)
-            WITH CHECK (auth.jwt() ->> 'email' = email);
+            USING (auth.uid()::text = id OR (auth.jwt() ->> 'email' = email))
+            WITH CHECK (auth.uid()::text = id OR (auth.jwt() ->> 'email' = email));
             
-        CREATE POLICY "Admins can read all profiles" ON public.users FOR SELECT USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid()::text AND role IN ('ADMIN', 'DEVELOPER')));
-        CREATE POLICY "Admins can update all profiles" ON public.users FOR UPDATE USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid()::text AND role IN ('ADMIN', 'DEVELOPER')));
+        CREATE POLICY "Admins can update all profiles" ON public.users FOR UPDATE 
+            TO authenticated
+            USING ( (SELECT role FROM public.users WHERE id = auth.uid()::text) IN ('ADMIN', 'DEVELOPER') );
 
         -- contacts: Volunteers read/update assigned, Admins all
-        CREATE POLICY "Volunteers can read assigned contacts" ON public.contacts FOR SELECT USING (assigned_to = auth.uid()::text);
-        CREATE POLICY "Volunteers can update assigned contacts" ON public.contacts FOR UPDATE USING (assigned_to = auth.uid()::text);
-        CREATE POLICY "Admins can do everything on contacts" ON public.contacts FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid()::text AND role IN ('ADMIN', 'DEVELOPER')));
+        CREATE POLICY "Volunteers can read assigned contacts" ON public.contacts FOR SELECT TO authenticated USING (assigned_to = auth.uid()::text);
+        CREATE POLICY "Volunteers can update assigned contacts" ON public.contacts FOR UPDATE TO authenticated USING (assigned_to = auth.uid()::text);
+        CREATE POLICY "Admins can do everything on contacts" ON public.contacts FOR ALL TO authenticated 
+            USING ( (SELECT role FROM public.users WHERE id = auth.uid()::text) IN ('ADMIN', 'DEVELOPER') );
 
         -- settings/announcements: Everyone read, Admins all
         CREATE POLICY "Public read for settings" ON public.settings FOR SELECT USING (true);
-        CREATE POLICY "Admin write for settings" ON public.settings FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid()::text AND role IN ('ADMIN', 'DEVELOPER')));
+        CREATE POLICY "Admin write for settings" ON public.settings FOR ALL TO authenticated 
+            USING ( (SELECT role FROM public.users WHERE id = auth.uid()::text) IN ('ADMIN', 'DEVELOPER') );
         CREATE POLICY "Public read for announcements" ON public.announcements FOR SELECT USING (true);
-        CREATE POLICY "Admin write for announcements" ON public.announcements FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid()::text AND role IN ('ADMIN', 'DEVELOPER')));
+        CREATE POLICY "Admin write for announcements" ON public.announcements FOR ALL TO authenticated 
+            USING ( (SELECT role FROM public.users WHERE id = auth.uid()::text) IN ('ADMIN', 'DEVELOPER') );
     `;
 
     try {

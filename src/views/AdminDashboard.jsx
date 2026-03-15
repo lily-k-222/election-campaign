@@ -149,6 +149,16 @@ export const AdminDashboard = () => {
         }
     };
 
+    // Debounced stats loader to prevent thrashing
+    const [statsTimeout, setStatsTimeout] = useState(null);
+    const debouncedLoadStats = React.useCallback(() => {
+        if (statsTimeout) clearTimeout(statsTimeout);
+        const timer = setTimeout(() => {
+            loadStats();
+        }, 5000); // 5s debounce
+        setStatsTimeout(timer);
+    }, [statsTimeout, loadStats]);
+
     // Initial Stats Load & Real-time Subscription for Dashboard
     React.useEffect(() => {
         if (activeTab === 'campaign' || activeTab === 'users' || activeTab === 'volunteers') {
@@ -157,6 +167,7 @@ export const AdminDashboard = () => {
 
         if (activeTab === 'campaign') {
             // Subscribe to all changes on contacts table to refresh stats in real-time
+            // Throttled via debouncedLoadStats
             const channel = supabase
                 .channel('admin-stats-monitor')
                 .on('postgres_changes', { 
@@ -164,16 +175,17 @@ export const AdminDashboard = () => {
                     schema: 'public', 
                     table: 'contacts' 
                 }, () => {
-                    console.log('Real-time: Contact change detected, reloading stats');
-                    loadStats();
+                    console.log('Real-time: Contact change detected, queuing stats refresh');
+                    debouncedLoadStats();
                 })
                 .subscribe();
 
             return () => {
                 supabase.removeChannel(channel);
+                if (statsTimeout) clearTimeout(statsTimeout);
             };
         }
-    }, [activeTab, loadStats]);
+    }, [activeTab, loadStats, debouncedLoadStats, statsTimeout]);
 
     // Paginated Fetch Effect
     React.useEffect(() => {
