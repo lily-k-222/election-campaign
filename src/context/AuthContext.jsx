@@ -12,20 +12,22 @@ export const AuthProvider = ({ children }) => {
     // Initial Auth State and Listener (Supabase Auth)
     useEffect(() => {
         let isInit = true;
+        console.log("AuthV3: Initialization starting...");
 
         const checkInitialSession = async () => {
             try {
-                // 1. First, check for an existing session explicitly
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session?.user) {
-                    console.log("Initial session found:", session.user.email);
+                    console.log("AuthV3: Initial session found:", session.user.email);
                     await handleUserSession(session.user);
+                } else {
+                    console.log("AuthV3: No initial session found.");
                 }
             } catch (err) {
-                console.error("Initial session check failed:", err);
+                console.error("AuthV3: Initial session check failed:", err);
             } finally {
-                // Only release loading if we are still in the initial check
                 if (isInit) {
+                    console.log("AuthV3: Releasing initial loading state.");
                     setLoading(false);
                 }
             }
@@ -33,9 +35,8 @@ export const AuthProvider = ({ children }) => {
 
         checkInitialSession();
 
-        // 2. Setup listener for subsequent changes (and initial event)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log("Auth Event:", event, session?.user?.email);
+            console.log("AuthV3 Event:", event, session?.user?.email);
             
             if (session?.user) {
                 await handleUserSession(session.user);
@@ -48,15 +49,19 @@ export const AuthProvider = ({ children }) => {
             
             if (isInit && event === 'INITIAL_SESSION') {
                 isInit = false;
-                // If INITIAL_SESSION has no user, and checkInitialSession also found nothing,
-                // we'll settle on false/null.
-                if (!session) setLoading(false);
+                if (!session) {
+                    console.log("AuthV3: Initial session event with no user.");
+                    setLoading(false);
+                }
             }
         });
 
         const safetyTimer = setTimeout(() => {
-            if (loading) setLoading(false);
-        }, 6000);
+            if (loading) {
+                console.warn("AuthV3: Safety timeout reached. Releasing loading.");
+                setLoading(false);
+            }
+        }, 12000); // 12s safety margin
 
         return () => {
             subscription.unsubscribe();
