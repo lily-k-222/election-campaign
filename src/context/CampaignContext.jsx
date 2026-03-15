@@ -312,6 +312,71 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
+    // Admin action: Fetch all contacts for Excel export (handles >1000 rows)
+    const fetchAllContactsForExport = async (filters = {}, search = '') => {
+        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return [];
+        
+        let allData = [];
+        let from = 0;
+        const PAGE_SIZE = 1000;
+        let hasMore = true;
+
+        try {
+            while (hasMore) {
+                let query = supabase
+                    .from('contacts')
+                    .select('*');
+
+                // Apply Filters
+                if (filters.status && filters.status !== 'ALL') {
+                    if (filters.status === 'UNASSIGNED') {
+                        query = query.eq('status', 'UNASSIGNED').is('assigned_to', null);
+                    } else if (filters.status === 'ASSIGNED') {
+                        query = query.neq('status', 'CALLED').not('assigned_to', 'is', null);
+                    } else {
+                        query = query.eq('status', filters.status);
+                    }
+                }
+                if (filters.region && filters.region !== 'ALL') {
+                    query = query.eq('region', filters.region);
+                }
+                if (filters.volunteerId && filters.volunteerId !== 'ALL') {
+                    if (filters.volunteerId === 'UNASSIGNED') {
+                        query = query.is('assigned_to', null);
+                    } else {
+                        query = query.eq('assigned_to', filters.volunteerId);
+                    }
+                }
+                if (filters.supportLevel && filters.supportLevel !== 'ALL') {
+                    query = query.eq('support_level', filters.supportLevel);
+                }
+
+                // Search
+                if (search) {
+                    const searchStr = `%${search}%`;
+                    query = query.or(`name.ilike.${searchStr},phone.ilike.${searchStr},job_title.ilike.${searchStr},member_type.ilike.${searchStr}`);
+                }
+
+                const { data, error } = await query
+                    .order('name', { ascending: true })
+                    .range(from, from + PAGE_SIZE - 1);
+
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    hasMore = false;
+                } else {
+                    allData = [...allData, ...data.map(mapContact)];
+                    from += PAGE_SIZE;
+                    if (data.length < PAGE_SIZE) hasMore = false;
+                }
+            }
+            return allData;
+        } catch (error) {
+            console.error("Export fetch failed:", error);
+            return [];
+        }
+    };
+
     const getVolunteerStats = (volunteerId) => {
         const vContacts = contacts.filter(c => c.assignedTo === volunteerId);
         if (vContacts.length > 0) {
@@ -374,44 +439,38 @@ export const CampaignProvider = ({ children }) => {
 
     const getCampaignStats = async () => {
         try {
-            // OPTIMIZATION: Use parallel count queries to handle >1000 rows accurately
-            // instead of fetching all rows which is capped at 1000.
+            console.log("Fetching Full Campaign Stats (v4)...");
+            const supportLevels = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
+            
+            // Parallel count queries for everything
             const [
                 { count: total },
                 { count: completed },
                 { count: unassigned },
-                { data: supportLevels }
+                ...supportLevelCounts
             ] = await Promise.all([
                 supabase.from('contacts').select('*', { count: 'exact', head: true }),
                 supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('status', 'CALLED'),
                 supabase.from('contacts').select('*', { count: 'exact', head: true }).is('assigned_to', null),
-                supabase.from('contacts').select('support_level').not('support_level', 'is', null)
+                ...supportLevels.map(lvl => 
+                    supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('support_level', lvl)
+                )
             ]);
 
-            const results = {
-                '강하게 지지': 0,
-                '약하게 지지': 0,
-                '관심없음': 0,
-                '지지하지 않음': 0,
-                '다른후보 지지': 0
-            };
-
-            // supportLevels will still be capped at 1000 by default if we select data,
-            // but for survey count we can use a separate count or just accept 1000 for now
-            // since we only have 20+ called contacts anyway.
-            // Better: loop if needed or use group by if available (not easily in anon client)
-            
-            (supportLevels || []).forEach(c => {
-                if (c.support_level && results[c.support_level] !== undefined) {
-                    results[c.support_level]++;
-                }
+            const results = {};
+            supportLevels.forEach((lvl, i) => {
+                results[lvl] = supportLevelCounts[i].count || 0;
             });
+
+            const surveyCount = Object.values(results).reduce((a, b) => a + b, 0);
+
+            console.log(`Stats Loaded: Total=${total}, Completed=${completed}, Survey=${surveyCount}`);
 
             return { 
                 total: total || 0, 
                 completed: completed || 0, 
                 unassigned: unassigned || 0, 
-                surveyCount: Object.values(results).reduce((a, b) => a + b, 0), 
+                surveyCount, 
                 results 
             };
         } catch (e) {
@@ -435,6 +494,7 @@ export const CampaignProvider = ({ children }) => {
         deleteContact,
         fetchContactsPaginated,
         fetchVolunteerContacts,
+        fetchAllContactsForExport,
         getVolunteerStats,
         fetchAllVolunteerStats,
         getCampaignStats,

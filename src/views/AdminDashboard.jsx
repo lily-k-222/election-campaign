@@ -267,49 +267,20 @@ export const AdminDashboard = () => {
     const handleExportToExcel = async () => {
         setIsDataLoading(true);
         try {
-            // Fetch all matching contacts without pagination limits
-            // We reuse the fetchContactsPaginated logic but with a very large pageSize or a dedicated fetch
-            const { data, error } = await supabase
-                .from('contacts')
-                .select('*')
-                .order('name', { ascending: true });
-
-            if (error) throw error;
-
-            // Apply client-side filters if needed, or refine query
-            let filtered = data;
-            
-            // Apply current filters-like logic
-            if (volunteerFilter !== 'ALL') {
-                if (volunteerFilter === 'UNASSIGNED') {
-                    filtered = filtered.filter(c => !c.assigned_to);
-                } else {
-                    filtered = filtered.filter(c => c.assigned_to === volunteerFilter);
-                }
-            }
-            
-            if (statusFilter !== 'ALL') {
-                filtered = filtered.filter(c => c.status === statusFilter);
-            }
-            
-            if (contactSearchTerm) {
-                const term = contactSearchTerm.toLowerCase();
-                filtered = filtered.filter(c => 
-                    c.name?.toLowerCase().includes(term) || 
-                    c.phone?.includes(term) || 
-                    c.region?.toLowerCase().includes(term) ||
-                    c.support_level?.toLowerCase().includes(term)
-                );
-            }
+            const data = await fetchAllContactsForExport({ 
+                volunteerId: volunteerFilter,
+                status: statusFilter,
+                supportLevel: activeTab === 'result_detail' ? supportLevelFilter : 'ALL'
+            }, contactSearchTerm);
 
             // Map to Korean headers for Excel
-            const excelData = filtered.map(c => ({
+            const excelData = data.map(c => ({
                 '이름': c.name,
                 '전화번호': c.phone,
                 '지역': c.region,
-                '성향': c.support_level || '-',
-                '상태': c.status === 'CALLED' ? '통화 완료' : (c.assigned_to ? '진행 대기' : '배정 대기'),
-                '담당자': users.find(u => u.id === c.assigned_to)?.name || '미할당',
+                '성향': c.supportLevel || '-',
+                '상태': c.status === 'CALLED' ? '통화 완료' : (c.assignedTo ? '진행 대기' : '배정 대기'),
+                '담당자': users.find(u => u.id === c.assignedTo)?.name || '미할당',
                 '메모': c.notes || ''
             }));
 
