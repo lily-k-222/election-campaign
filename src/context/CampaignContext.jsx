@@ -442,18 +442,24 @@ export const CampaignProvider = ({ children }) => {
             console.log("Fetching Full Campaign Stats (v4)...");
             const supportLevels = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
             
-            // Parallel count queries for everything
+            // Parallel count queries for everything (Wrapped to prevent fail)
+            const safeCount = async (query) => {
+                const { count, error } = await query;
+                if (error) console.error("Stats sub-query error:", error);
+                return { count: count || 0 };
+            };
+
             const [
                 { count: total },
                 { count: completed },
                 { count: unassigned },
                 ...supportLevelCounts
             ] = await Promise.all([
-                supabase.from('contacts').select('*', { count: 'exact', head: true }),
-                supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('status', 'CALLED'),
-                supabase.from('contacts').select('*', { count: 'exact', head: true }).is('assigned_to', null),
+                safeCount(supabase.from('contacts').select('*', { count: 'exact', head: true })),
+                safeCount(supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('status', 'CALLED')),
+                safeCount(supabase.from('contacts').select('*', { count: 'exact', head: true }).is('assigned_to', null)),
                 ...supportLevels.map(lvl => 
-                    supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('support_level', lvl)
+                    safeCount(supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('support_level', lvl))
                 )
             ]);
 
