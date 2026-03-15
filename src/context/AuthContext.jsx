@@ -11,35 +11,57 @@ export const AuthProvider = ({ children }) => {
 
     // Initial Auth State and Listener (Supabase Auth)
     useEffect(() => {
-        let isInitialCheck = true;
-        
+        let isInit = true;
+
+        const checkInitialSession = async () => {
+            try {
+                // 1. First, check for an existing session explicitly
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user) {
+                    console.log("Initial session found:", session.user.email);
+                    await handleUserSession(session.user);
+                }
+            } catch (err) {
+                console.error("Initial session check failed:", err);
+            } finally {
+                // Only release loading if we are still in the initial check
+                if (isInit) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        checkInitialSession();
+
+        // 2. Setup listener for subsequent changes (and initial event)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log("Auth State Changed:", event, session?.user?.email);
+            console.log("Auth Event:", event, session?.user?.email);
             
             if (session?.user) {
-                // If we have a session, fetch/sync profile
                 await handleUserSession(session.user);
-            } else {
-                // No session
+                setLoading(false);
+            } else if (event === 'SIGNED_OUT') {
                 setUser(null);
                 setAllUsers([]);
                 setLoading(false);
             }
             
-            if (isInitialCheck) {
-                isInitialCheck = false;
-                setLoading(false);
+            if (isInit && event === 'INITIAL_SESSION') {
+                isInit = false;
+                // If INITIAL_SESSION has no user, and checkInitialSession also found nothing,
+                // we'll settle on false/null.
+                if (!session) setLoading(false);
             }
         });
 
-        // Safety timeout to ensure loading screen doesn't hang forever
-        const timeout = setTimeout(() => {
-            setLoading(false);
-        }, 8000);
+        const safetyTimer = setTimeout(() => {
+            if (loading) setLoading(false);
+        }, 6000);
 
         return () => {
             subscription.unsubscribe();
-            clearTimeout(timeout);
+            clearTimeout(safetyTimer);
+            isInit = false;
         };
     }, []);
 
