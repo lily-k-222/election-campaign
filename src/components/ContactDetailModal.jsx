@@ -50,7 +50,7 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
     const supportOptions = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
 
 
-    const handleSaveAll = () => {
+    const handleSaveAll = async () => {
         let finalNotes = isEditing ? editForm.notes : (contact.notes || '');
         let finalSupportLevel = supportLevel;
         let finalStatus = finalSupportLevel ? 'CALLED' : 'ASSIGNED';
@@ -75,8 +75,6 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
                 ? `${finalNotes}\n${recordEntry}` 
                 : recordEntry;
                 
-            // If a record is added or support level is set, it's definitely a call
-            // But if support level was removed and no new record, the top-level logic handles ASSIGNED
             if (finalSupportLevel) finalStatus = 'CALLED';
         } else if (!isEditing) {
             // Nothing changed and not editing
@@ -90,7 +88,6 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
             status: finalStatus
         };
 
-        // Include basic info if editing
         if (isEditing) {
             updateData.name = editForm.name;
             updateData.age = editForm.age;
@@ -99,21 +96,25 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
             updateData.phone = editForm.phone;
         }
         
-        setNewRecord('');
-        updateContact(contact.id, updateData);
-        if (onUpdate) onUpdate({ id: contact.id, ...updateData });
+        const res = await updateContact(contact.id, updateData);
         
-        setIsEditing(false);
-        setIsEditingGuide(false);
-        alert('저장되었습니다.');
-        onClose();
+        if (res.success) {
+            setNewRecord('');
+            if (onUpdate) onUpdate({ id: contact.id, ...updateData });
+            setIsEditing(false);
+            setIsEditingGuide(false);
+            alert('저장되었습니다.');
+            onClose();
+        } else {
+            alert(`저장 중 오류가 발생했습니다: ${res.error?.message || '알 수 없는 오류'}`);
+        }
     };
 
     const handleSaveEdit = () => {
         handleSaveAll();
     };
 
-    const handleCallFailed = () => {
+    const handleCallFailed = async () => {
         const now = new Date();
         const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         
@@ -135,14 +136,18 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
         };
 
         console.log('ContactDetailModal: handleCallFailed', updateData);
-        setNewRecord('');
-        updateContact(contact.id, updateData);
-        if (onUpdate) onUpdate({ id: contact.id, ...updateData });
         
-        setIsEditing(false);
-        setIsEditingGuide(false);
-        alert('통화 실패로 기록되었습니다.');
-        onClose();
+        const res = await updateContact(contact.id, updateData);
+        if (res.success) {
+            setNewRecord('');
+            if (onUpdate) onUpdate({ id: contact.id, ...updateData });
+            setIsEditing(false);
+            setIsEditingGuide(false);
+            alert('통화 실패로 기록되었습니다.');
+            onClose();
+        } else {
+            alert(`기록 중 오류가 발생했습니다: ${res.error?.message || '알 수 없는 오류'}`);
+        }
     };
 
     const handleSaveGuide = () => {

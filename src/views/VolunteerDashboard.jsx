@@ -140,8 +140,11 @@ export const VolunteerDashboard = () => {
             type: 'confirm',
             title: '통화 상태 변경',
             message: `${contact.name}님의 상태를 [${newStatus === 'CALLED' ? '완료' : '진행 대기'}]로 변경하시겠습니까?`,
-            onConfirm: () => {
-                updateContact(contact.id, { status: newStatus });
+            onConfirm: async () => {
+                const res = await updateContact(contact.id, { status: newStatus });
+                if (!res.success) {
+                    alert(`상태 변경 중 오류가 발생했습니다: ${res.error?.message || '알 수 없는 오류'}`);
+                }
             }
         });
     };

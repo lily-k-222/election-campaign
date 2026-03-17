@@ -230,7 +230,29 @@ export const CampaignProvider = ({ children }) => {
             return { success: true };
         } catch (error) {
             console.error('Failed to sync call record:', error);
-            // Revert on error? Or just leave it as is if real-time will eventually sync
+            // Revert optimistic update on error
+            // fetchMyContacts(); // One way to sync back
+            return { success: false, error };
+        }
+    };
+
+    // Admin & Volunteer action: Update an existing contact
+    const updateContact = async (contactId, updatedData) => {
+        // Optimistic update
+        setContacts(prev => prev.map(c => c.id === contactId ? { ...c, ...updatedData } : c));
+
+        try {
+            const payload = unmapContact(updatedData);
+
+            const { error } = await supabase
+                .from('contacts')
+                .update(payload)
+                .eq('id', contactId);
+            
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to update contact:', error);
             return { success: false, error };
         }
     };
@@ -253,27 +275,6 @@ export const CampaignProvider = ({ children }) => {
             return { success: true };
         } catch (error) {
             console.error('Failed to add contact:', error);
-            return { success: false, error };
-        }
-    };
-
-    // Admin & Volunteer action: Update an existing contact
-    const updateContact = async (contactId, updatedData) => {
-        // Optimistic update
-        setContacts(prev => prev.map(c => c.id === contactId ? { ...c, ...updatedData } : c));
-
-        try {
-            const payload = unmapContact(updatedData);
-
-            const { error } = await supabase
-                .from('contacts')
-                .update(payload)
-                .eq('id', contactId);
-            
-            if (error) throw error;
-            return { success: true };
-        } catch (error) {
-            console.error('Failed to update contact:', error);
             return { success: false, error };
         }
     };
