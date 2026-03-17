@@ -595,9 +595,10 @@ export const AdminDashboard = () => {
                                 {[
                                     { label: '1. 강하게 지지', value: stats.results['강하게 지지'] || 0, color: '#1e3a8a' },
                                     { label: '2. 약하게 지지', value: stats.results['약하게 지지'] || 0, color: '#3b82f6' },
-                                    { label: '3. 관심없음',   value: stats.results['관심없음'] || 0, color: '#93c5fd' },
+                                    { label: '3. 보통',        value: stats.results['보통'] || 0, color: '#60a5fa' },
                                     { label: '4. 지지하지 않음', value: stats.results['지지하지 않음'] || 0, color: '#94a3b8' },
-                                    { label: '5. 다른후보 지지', value: stats.results['다른후보 지지'] || 0, color: '#475569' }
+                                    { label: '5. 관심없음',   value: stats.results['관심없음'] || 0, color: '#93c5fd' },
+                                    { label: '6. 기타',       value: stats.results['기타'] || 0, color: '#475569' }
                                 ].map((item, idx) => (
                                     <div key={idx} className="flex items-center gap-4 relative py-1">
                                         <span className="text-[14px] font-semibold text-gray-800 w-28 flex-shrink-0 tracking-tight">{item.label}</span>
@@ -1241,9 +1242,10 @@ export const AdminDashboard = () => {
                                                 <option value="ALL">전체 성향</option>
                                                 <option value="강하게 지지">강하게 지지</option>
                                                 <option value="약하게 지지">약하게 지지</option>
-                                                <option value="관심없음">관심없음</option>
+                                                <option value="보통">보통</option>
                                                 <option value="지지하지 않음">지지하지 않음</option>
-                                                <option value="다른후보 지지">다른후보 지지</option>
+                                                <option value="관심없음">관심없음</option>
+                                                <option value="기타">기타</option>
                                             </select>
                                         )}
                                     </div>

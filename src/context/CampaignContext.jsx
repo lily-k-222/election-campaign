@@ -445,7 +445,7 @@ export const CampaignProvider = ({ children }) => {
     const getCampaignStats = async () => {
         try {
             console.log("Fetching Full Campaign Stats (v4)...");
-            const supportLevels = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
+            const supportLevels = ['강하게 지지', '약하게 지지', '보통', '지지하지 않음', '관심없음', '기타'];
             
             // Parallel count queries for everything (Wrapped to prevent fail)
             const safeCount = async (query) => {

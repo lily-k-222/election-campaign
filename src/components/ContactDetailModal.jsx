@@ -47,7 +47,7 @@ export const ContactDetailModal = ({ isOpen, onClose, contact, onUpdate }) => {
 
     if (!isOpen || !contact) return null;
 
-    const supportOptions = ['강하게 지지', '약하게 지지', '관심없음', '지지하지 않음', '다른후보 지지'];
+    const supportOptions = ['강하게 지지', '약하게 지지', '보통', '지지하지 않음', '관심없음', '기타'];
 
 
     const handleSaveAll = async () => {
