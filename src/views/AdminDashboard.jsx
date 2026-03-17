@@ -7,7 +7,7 @@ import { Badge } from '../components/Badge';
 import { ContactFormModal } from '../components/ContactFormModal';
 import { ContactDetailModal } from '../components/ContactDetailModal';
 import { DialogModal } from '../components/DialogModal';
-import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList, Edit2, Save, X, Download, ArrowLeft, ChevronRight } from 'lucide-react';
+import { Search, SlidersHorizontal, User as UserIcon, BarChart2, ClipboardList, Edit2, Save, X, Download, ArrowLeft, ChevronRight, Bug } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 
 export const AdminDashboard = () => {
@@ -1021,7 +1021,7 @@ export const AdminDashboard = () => {
                                                                     </div>
                                                                 </td>
                                                             <td className="p-4 text-right pr-5">
-                                                                {user.id === currentUser.id ? (
+                                                                {user.id === currentUser?.id ? (
                                                                     <div className="inline-block px-4 py-1.5 bg-[#1e3a8a] text-white rounded-xl text-[13px] font-extrabold shadow-sm border border-slate-200/80">
                                                                         관리자 (본인)
                                                                     </div>
