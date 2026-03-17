@@ -1,11 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Megaphone, User, LogOut } from 'lucide-react';
+import { Megaphone, User, LogOut, AlertCircle } from 'lucide-react';
+import { ErrorReportModal } from '../ErrorReportModal';
 
 export const Header = () => {
     const { user, isAuthenticated, logout } = useAuth();
     const navigate = useNavigate();
+    const [isErrorReportOpen, setIsErrorReportOpen] = React.useState(false);
 
     const handleLogout = () => {
         logout();
@@ -24,6 +26,13 @@ export const Header = () => {
 
             {isAuthenticated && user && (
                 <div className="flex items-center gap-4">
+                    <button 
+                        onClick={() => setIsErrorReportOpen(true)}
+                        className="flex items-center gap-2 px-3 py-2 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-sm font-bold transition-colors text-red-600"
+                    >
+                        <AlertCircle size={16} /> 오류신고
+                    </button>
+
                     <div className="flex items-center bg-[#f0f2f5] rounded-full pr-4 pl-1.5 py-1 gap-2 border border-gray-200">
                         <div className="bg-slate-400 w-8 h-8 rounded-full flex items-center justify-center text-white">
                             <User size={18} />
@@ -47,6 +56,7 @@ export const Header = () => {
                     </button>
                 </div>
             )}
+            <ErrorReportModal isOpen={isErrorReportOpen} onClose={() => setIsErrorReportOpen(false)} />
         </header>
     );
 };

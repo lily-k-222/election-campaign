@@ -24,6 +24,8 @@ export const AdminDashboard = () => {
         fetchContactsPaginated,
         fetchAllVolunteerStats,
         fetchAllContactsForExport,
+        fetchErrorReports,
+        updateErrorReportStatus,
         resetDatabase,
         loading: contextLoading
     } = useCampaign();
@@ -51,6 +53,8 @@ export const AdminDashboard = () => {
     // Users Tab Search & Sort
     const [userSearchTerm, setUserSearchTerm] = useState('');
     const [userRoleSort, setUserRoleSort] = useState('ALL');
+    const [errorReports, setErrorReports] = useState([]);
+    const [isReportsLoading, setIsReportsLoading] = useState(false);
 
     // Volunteers Tab Search
     const [volunteerSearchTerm, setVolunteerSearchTerm] = useState('');
@@ -218,6 +222,26 @@ export const AdminDashboard = () => {
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '' });
     const [globalSettings, setGlobalSettings] = useState({ call_guide: '' });
+
+    useEffect(() => {
+        if (currentUser && currentUser.role === 'DEVELOPER' && activeTab === 'errorReports') {
+            loadErrorReports();
+        }
+    }, [currentUser, activeTab]);
+
+    const loadErrorReports = async () => {
+        setIsReportsLoading(true);
+        const reports = await fetchErrorReports();
+        setErrorReports(reports);
+        setIsReportsLoading(false);
+    };
+
+    const handleStatusUpdate = async (reportId, newStatus) => {
+        const { success } = await updateErrorReportStatus(reportId, newStatus);
+        if (success) {
+            setErrorReports(prev => prev.map(r => r.id === reportId ? { ...r, status: newStatus } : r));
+        }
+    };
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -465,6 +489,18 @@ export const AdminDashboard = () => {
                 >
                     연락처 관리
                 </button>
+                {currentUser?.role === 'DEVELOPER' && (
+                    <button
+                        onClick={() => setActiveTab('errorReports')}
+                        className={`px-6 py-2.5 font-bold rounded-t-lg transition-colors border-x border-t z-10 -mb-px text-[15px] flex items-center gap-2 ${
+                            activeTab === 'errorReports'
+                            ? 'bg-[#ef4444] text-white border-[#ef4444]'
+                            : 'bg-transparent text-gray-600 border-transparent hover:text-gray-800'
+                        }`}
+                    >
+                        <Bug size={18} /> 오류 신고 내역
+                    </button>
+                )}
                 <div className="flex-1"></div>
                 <button
                     onClick={() => navigate('/volunteer')}
@@ -745,7 +781,7 @@ export const AdminDashboard = () => {
             )}
 
             {/* Other Tabs Content Maintained but Wrapped Properly */}
-            {(activeTab === 'users' || activeTab === 'contacts' || activeTab === 'volunteers') && (
+            {(activeTab === 'users' || activeTab === 'contacts' || activeTab === 'volunteers' || (activeTab === 'errorReports' && currentUser?.role === 'DEVELOPER')) && (
                 <div className="px-8 py-6 text-gray-900 bg-[#e8edf2] flex-1 w-full flex flex-col items-center overflow-y-auto">
                     <div className="w-full max-w-[1100px] flex flex-col gap-6">
                         
@@ -992,10 +1028,6 @@ export const AdminDashboard = () => {
                                                                 ) : (
                                                                     <div className="flex justify-end gap-1.5 p-1 bg-slate-100 rounded-2xl w-max ml-auto shadow-inner border border-slate-200/60">
                                                                         <button 
-                                                                            onClick={() => handleRoleUpdate(user.id, user.name, 'ADMIN')}
-                                                                            className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'ADMIN' ? 'bg-[#1e3a8a] text-white shadow-sm scale-100' : 'text-slate-500 hover:text-slate-800 scale-95 hover:bg-slate-200/50'}`}
-                                                                        >관리자</button>
-                                                                        <button 
                                                                             onClick={() => handleRoleUpdate(user.id, user.name, 'VOLUNTEER')}
                                                                             className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'VOLUNTEER' ? 'bg-[#1e3a8a] text-white shadow-sm scale-100' : 'text-slate-500 hover:text-slate-800 scale-95 hover:bg-slate-200/50'}`}
                                                                         >담당자</button>
@@ -1008,13 +1040,94 @@ export const AdminDashboard = () => {
                                                             </td>
                                                         </tr>
                                                     );
-                                                });
-                                                })()}
+                                                })
+                                            })()}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
                             </>
+                        )}
+
+                        {activeTab === 'errorReports' && currentUser?.role === 'DEVELOPER' && (
+                            <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 flex flex-col">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-[20px] font-extrabold text-slate-800 flex items-center gap-2 border-l-4 border-red-500 pl-3 tracking-tight">시스템 오류 신고 내역</h2>
+                                    <button 
+                                        onClick={loadErrorReports}
+                                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[13px] font-bold rounded-xl transition-all flex items-center gap-1"
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                        새로고침
+                                    </button>
+                                </div>
+
+                                <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                                    <table className="w-full text-left text-sm whitespace-nowrap">
+                                        <thead className="bg-red-50/50 text-slate-600 font-bold border-b border-red-100">
+                                            <tr>
+                                                <th className="p-4 pl-5">접수 일시</th>
+                                                <th className="p-4">신고자</th>
+                                                <th className="p-4">카테고리</th>
+                                                <th className="p-4">오류 내용</th>
+                                                <th className="p-4">상태</th>
+                                                <th className="p-4 pr-5 text-right">관리</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {isReportsLoading ? (
+                                                <tr><td colSpan="6" className="p-12 text-center text-slate-400 font-bold">로딩 중...</td></tr>
+                                            ) : errorReports.length === 0 ? (
+                                                <tr><td colSpan="6" className="p-12 text-center text-slate-500 font-medium">신고된 내역이 없습니다.</td></tr>
+                                            ) : (
+                                                errorReports.map(report => (
+                                                    <tr key={report.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                                        <td className="p-4 pl-5 text-slate-500 font-mono text-[12px]">
+                                                            {new Date(report.created_at).toLocaleString()}
+                                                        </td>
+                                                        <td className="p-4 font-bold text-slate-700">
+                                                            {report.user_name}
+                                                            <div className="text-[11px] font-medium text-slate-400 font-mono">{report.user_email}</div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <span className="px-2 py-1 bg-red-50 text-red-600 rounded text-[12px] font-black border border-red-100">
+                                                                {report.category}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="max-w-[400px] whitespace-normal font-medium text-slate-700 leading-relaxed">
+                                                                {report.description}
+                                                            </div>
+                                                            {report.metadata && (
+                                                                <div className="mt-1 text-[10px] text-slate-400 font-mono">
+                                                                    URL: {report.metadata.url?.split('/').pop() || '/'}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <Badge variant={report.status === 'FIXED' ? 'success' : report.status === 'PENDING' ? 'warning' : 'default'}>
+                                                                {report.status === 'PENDING' ? '확인대기' : report.status === 'INVESTIGATING' ? '조사중' : '조치완료'}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="p-4 pr-5 text-right">
+                                                            <div className="flex gap-1.5 justify-end">
+                                                                <button 
+                                                                    onClick={() => handleStatusUpdate(report.id, 'INVESTIGATING')}
+                                                                    className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-[11px] font-bold hover:bg-blue-100"
+                                                                >조사중</button>
+                                                                <button 
+                                                                    onClick={() => handleStatusUpdate(report.id, 'FIXED')}
+                                                                    className="px-2 py-1 bg-green-50 text-green-600 rounded text-[11px] font-bold hover:bg-green-100"
+                                                                >완료</button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         )}
 
                         {activeTab === 'contacts' && (

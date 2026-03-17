@@ -94,13 +94,29 @@ export const AuthProvider = ({ children }) => {
                 .maybeSingle();
 
             if (existingByEmail) {
-                console.log(`Migration: Linking existing user ${authUser.email} to new Supabase ID`);
+                const oldId = existingByEmail.id;
+                console.log(`Migration: Linking existing user ${authUser.email} (${oldId}) to new Supabase ID (${authUser.id})`);
+                
+                // 1. Update the user ID in the users table
                 const { error: updateError } = await supabase
                     .from('users')
                     .update({ id: authUser.id })
                     .eq('email', authUser.email);
 
                 if (!updateError) {
+                    console.log(`Migration: User ID updated. Now syncing contacts assigned to ${oldId}`);
+                    // 2. Sync contacts assigned to the old ID
+                    const { error: contactSyncError } = await supabase
+                        .from('contacts')
+                        .update({ assigned_to: authUser.id })
+                        .eq('assigned_to', oldId);
+                    
+                    if (contactSyncError) {
+                        console.error("Migration: Contact sync failed:", contactSyncError);
+                    } else {
+                        console.log("Migration: Contact sync successful.");
+                    }
+                    
                     setUser({ ...existingByEmail, id: authUser.id });
                 } else {
                     console.error("Migration ID link failed:", updateError);

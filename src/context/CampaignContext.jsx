@@ -495,6 +495,38 @@ export const CampaignProvider = ({ children }) => {
         alert('이 기능은 Supabase 환경에서 마이그레이션 스크립트를 통해 지원됩니다.');
     };
 
+    const fetchErrorReports = async () => {
+        if (!user || user.role !== 'DEVELOPER') return [];
+        try {
+            const { data, error } = await supabase
+                .from('error_reports')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Failed to fetch error reports:', error);
+            return [];
+        }
+    };
+
+    const updateErrorReportStatus = async (reportId, status) => {
+        if (!user || user.role !== 'DEVELOPER') return { success: false, error: 'Unauthorized' };
+        try {
+            const { error } = await supabase
+                .from('error_reports')
+                .update({ status })
+                .eq('id', reportId);
+            
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to update report status:', error);
+            return { success: false, error };
+        }
+    };
+
     const value = {
         contacts,
         assignQuota,
@@ -509,6 +541,8 @@ export const CampaignProvider = ({ children }) => {
         getVolunteerStats,
         fetchAllVolunteerStats,
         getCampaignStats,
+        fetchErrorReports,
+        updateErrorReportStatus,
         resetDatabase,
         loading
     };
