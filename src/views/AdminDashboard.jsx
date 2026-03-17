@@ -139,7 +139,7 @@ export const AdminDashboard = () => {
                 filters: { 
                     volunteerId: activeTab === 'contacts' ? volunteerFilter : 'ALL',
                     status: activeTab === 'contacts' ? statusFilter : 'CALLED',
-                    supportLevel: activeTab === 'result_detail' ? supportLevelFilter : 'ALL'
+                    supportLevel: (activeTab === 'contacts' || activeTab === 'result_detail') ? supportLevelFilter : 'ALL'
                 },
                 search: contactSearchTerm 
             });
@@ -267,39 +267,46 @@ export const AdminDashboard = () => {
     const handleExportToExcel = async () => {
         setIsDataLoading(true);
         try {
-            const data = await fetchAllContactsForExport({ 
+            // Fetch all data for export (handling pagination in context)
+            const allContacts = await fetchAllContactsForExport({ 
                 volunteerId: volunteerFilter,
                 status: statusFilter,
-                supportLevel: activeTab === 'result_detail' ? supportLevelFilter : 'ALL'
+                supportLevel: (activeTab === 'contacts' || activeTab === 'result_detail') ? supportLevelFilter : 'ALL'
             }, contactSearchTerm);
 
-            // Map to Korean headers for Excel
-            const excelData = data.map(c => ({
+            if (!allContacts || allContacts.length === 0) {
+                alert('다운로드할 데이터가 없습니다.');
+                setIsDataLoading(false);
+                return;
+            }
+
+            // Map data for Excel export
+            const exportData = allContacts.map(c => ({
                 '이름': c.name,
                 '전화번호': c.phone,
                 '지역': c.region,
-                '성향': c.supportLevel || '-',
+                '나이': c.age,
+                '성향': c.supportLevel || '미확인',
                 '상태': c.status === 'CALLED' ? '통화 완료' : (c.assignedTo ? '진행 대기' : '배정 대기'),
-                '담당자': users.find(u => u.id === c.assignedTo)?.name || '미할당',
-                '메모': c.notes || ''
+                '담당자': assignableUsers.find(u => u.id === c.assignedTo)?.name || '미배정',
+                '메모/기록': c.notes
             }));
 
-            const worksheet = utils.json_to_sheet(excelData);
+            const worksheet = utils.json_to_sheet(exportData);
             const workbook = utils.book_new();
             utils.book_append_sheet(workbook, worksheet, "연락처 명부");
             
             const dateStr = new Date().toISOString().split('T')[0];
             writeFile(workbook, `강진_캠페인_명부_${dateStr}.xlsx`);
             
-            showDialog('alert', '성공', '파일 다운로드가 시작되었습니다.');
+            showDialog('alert', '다운로드 완료', '전체 데이터가 포함된 엑셀 파일이 다운로드됩니다.');
         } catch (error) {
-            console.error('Export failed:', error);
-            showDialog('alert', '오류', '엑셀 추출 중 오류가 발생했습니다.');
+            console.error('Excel export failed:', error);
+            showDialog('alert', '오류', '엑셀 다운로드 중 오류가 발생했습니다.');
         } finally {
             setIsDataLoading(false);
         }
     };
-
     const handleAssign = async () => {
         if (!selectedVolunteer) {
             showDialog('alert', '안내', '할당할 담당자를 먼저 선택해주세요.');

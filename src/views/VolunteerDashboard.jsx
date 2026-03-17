@@ -41,7 +41,9 @@ export const VolunteerDashboard = () => {
             return;
         }
 
-        // For admins, we need to fetch them
+        // For admins viewing a specific volunteer, we fetch the data.
+        // We do NOT add 'contacts' to the dependency array to avoid race conditions
+        // where a global update triggers a refetch that overwrites optimistic local updates.
         const loadVolunteerData = async () => {
             setIsVStatsLoading(true);
             try {
@@ -55,7 +57,7 @@ export const VolunteerDashboard = () => {
         };
         
         loadVolunteerData();
-    }, [targetUserId, isAdmin, fetchVolunteerContacts, contacts, currentUser.id]);
+    }, [targetUserId, isAdmin, fetchVolunteerContacts, currentUser.id]);
 
     const handleCallFailedDirect = async (contact) => {
         const now = new Date();
@@ -435,6 +437,7 @@ export const VolunteerDashboard = () => {
                 onUpdate={(updatedContact) => {
                     // Update the local list reflecting changes from the modal
                     setVolunteerContacts(prev => prev.map(c => c.id === updatedContact.id ? { ...c, ...updatedContact } : c));
+                    // If this is the current volunteer, the context 'contacts' is already updated optimistically by updateContact
                 }}
             />
             

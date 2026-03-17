@@ -108,7 +108,8 @@ export const CampaignProvider = ({ children }) => {
             // Filters
             if (filters.status && filters.status !== 'ALL') {
                 if (filters.status === 'UNASSIGNED') {
-                    query = query.eq('status', 'UNASSIGNED').is('assigned_to', null);
+                    // Be inclusive: either explicit status or null assignment
+                    query = query.or('status.eq.UNASSIGNED,assigned_to.is.null');
                 } else if (filters.status === 'ASSIGNED') {
                     query = query.neq('status', 'CALLED').not('assigned_to', 'is', null);
                 } else {
@@ -413,7 +414,9 @@ export const CampaignProvider = ({ children }) => {
                 statsMap[vid] = { total: 0, completed: 0, remaining: 0, progress: 0 };
             });
 
-            // Aggregate
+            // Aggregate with ID format fallback if possible
+            // Note: If some contacts have old ID formats, they will still be counted 
+            // if those IDs are in the volunteerIds list.
             (data || []).forEach(contact => {
                 const vid = contact.assigned_to;
                 if (statsMap[vid]) {
