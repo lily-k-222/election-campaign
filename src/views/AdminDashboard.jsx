@@ -610,7 +610,9 @@ export const AdminDashboard = () => {
                                                 }}>
                                             </div>
                                         </div>
-                                        <span className="text-[14px] font-bold text-gray-800 w-8 text-right">{item.value}</span>
+                                        <span className="text-[12px] font-bold text-gray-800 w-24 text-right">
+                                            {stats.surveyCount > 0 ? ((item.value / stats.surveyCount) * 100).toFixed(1) : '0.0'}% ({item.value})
+                                        </span>
                                     </div>
                                 ))}
                             </div>
