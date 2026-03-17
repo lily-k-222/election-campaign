@@ -23,6 +23,7 @@ export const AdminDashboard = () => {
         importBulkContacts,
         fetchContactsPaginated,
         fetchAllVolunteerStats,
+        fetchAllContactsForExport,
         resetDatabase,
         loading: contextLoading
     } = useCampaign();
@@ -1065,7 +1066,14 @@ export const AdminDashboard = () => {
                                             ].map(cat => (
                                                 <button
                                                     key={cat.id}
-                                                    onClick={() => setFilterCategory(cat.id)}
+                                                    onClick={() => {
+                                                        setFilterCategory(cat.id);
+                                                        // Reset other categories' filters to 'ALL' to avoid invisible conflicting filters
+                                                        if (cat.id === 'agent') { setStatusFilter('ALL'); setSupportLevelFilter('ALL'); }
+                                                        else if (cat.id === 'status') { setVolunteerFilter('ALL'); setSupportLevelFilter('ALL'); }
+                                                        else if (cat.id === 'support') { setVolunteerFilter('ALL'); setStatusFilter('ALL'); }
+                                                        setContactPage(1);
+                                                    }}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${filterCategory === cat.id ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                                                 >
                                                     {cat.label}

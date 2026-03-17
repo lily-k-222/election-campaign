@@ -332,7 +332,8 @@ export const CampaignProvider = ({ children }) => {
                 // Apply Filters
                 if (filters.status && filters.status !== 'ALL') {
                     if (filters.status === 'UNASSIGNED') {
-                        query = query.eq('status', 'UNASSIGNED').is('assigned_to', null);
+                        // Be inclusive: either explicit status or null assignment
+                        query = query.or('status.eq.UNASSIGNED,assigned_to.is.null');
                     } else if (filters.status === 'ASSIGNED') {
                         query = query.neq('status', 'CALLED').not('assigned_to', 'is', null);
                     } else {
