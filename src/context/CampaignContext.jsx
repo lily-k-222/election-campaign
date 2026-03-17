@@ -512,11 +512,16 @@ export const CampaignProvider = ({ children }) => {
     };
 
     const updateErrorReportStatus = async (reportId, status) => {
-        if (!user || user.role !== 'DEVELOPER') return { success: false, error: 'Unauthorized' };
+        if (!user || (user.role !== 'DEVELOPER' && user.role !== 'ADMIN')) return { success: false, error: 'Unauthorized' };
         try {
+            const updateData = { status };
+            if (status === 'FIXED') {
+                updateData.fixed_at = new Date().toISOString();
+            }
+            
             const { error } = await supabase
                 .from('error_reports')
-                .update({ status })
+                .update(updateData)
                 .eq('id', reportId);
             
             if (error) throw error;

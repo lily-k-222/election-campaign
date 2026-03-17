@@ -224,7 +224,7 @@ export const AdminDashboard = () => {
     const [globalSettings, setGlobalSettings] = useState({ call_guide: '' });
 
     useEffect(() => {
-        if (currentUser && currentUser.role === 'DEVELOPER' && activeTab === 'errorReports') {
+        if (currentUser && (currentUser.role === 'DEVELOPER' || currentUser.role === 'ADMIN') && activeTab === 'errorReports') {
             loadErrorReports();
         }
     }, [currentUser, activeTab]);
@@ -489,7 +489,7 @@ export const AdminDashboard = () => {
                 >
                     연락처 관리
                 </button>
-                {currentUser?.role === 'DEVELOPER' && (
+                {(currentUser?.role === 'DEVELOPER' || currentUser?.role === 'ADMIN') && (
                     <button
                         onClick={() => setActiveTab('errorReports')}
                         className={`px-6 py-2.5 font-bold rounded-t-lg transition-colors border-x border-t z-10 -mb-px text-[15px] flex items-center gap-2 ${
@@ -1050,7 +1050,7 @@ export const AdminDashboard = () => {
                             </>
                         )}
 
-                        {activeTab === 'errorReports' && currentUser?.role === 'DEVELOPER' && (
+                        {activeTab === 'errorReports' && (currentUser?.role === 'DEVELOPER' || currentUser?.role === 'ADMIN') && (
                             <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-7 flex flex-col">
                                 <div className="flex justify-between items-center mb-6">
                                     <h2 className="text-[20px] font-extrabold text-slate-800 flex items-center gap-2 border-l-4 border-red-500 pl-3 tracking-tight">시스템 오류 신고 내역</h2>
@@ -1089,6 +1089,12 @@ export const AdminDashboard = () => {
                                                         <td className="p-4 font-bold text-slate-700">
                                                             {report.user_name}
                                                             <div className="text-[11px] font-medium text-slate-400 font-mono">{report.user_email}</div>
+                                                            {report.status === 'FIXED' && report.fixed_at && (
+                                                                <div className="text-[11px] font-bold text-[#1e3a8a] mt-1 flex items-center gap-1">
+                                                                    <div className="w-1.5 h-1.5 bg-[#1e3a8a] rounded-full animate-pulse"></div>
+                                                                    조치 완료 일시: {new Date(report.fixed_at).toLocaleString()}
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td className="p-4">
                                                             <span className="px-2 py-1 bg-red-50 text-red-600 rounded text-[12px] font-black border border-red-100">
