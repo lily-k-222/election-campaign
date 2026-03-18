@@ -1,25 +1,44 @@
-# CURRENT_STATUS.md - 프로젝트 현재 상태 (2026-03-18)
+# VoiceConnect Campaign - PROJECT HISTORY & CURRENT STATUS
 
-## 📌 최근 수정 사항: 로그인 및 권한 문제 해결
-등록된 사용자가 로그인이 안 되거나 무한 루프에 빠지는 문제를 해결하기 위해 **Supabase Row Level Security(RLS)** 정책을 강화하고 사용자 관리 로직을 정비했습니다.
+이 문서는 프로젝트 시작부터 현재까지의 주요 수정 사항과 시스템 상태를 기록합니다.
 
-### 1. 수정된 테이블 및 정책 (Row Level Security)
-- **대상 테이블**: `public.users`
-- **추가된 정책**:
-    - `Users can insert their own profile`: 사용자가 구글 로그인 시 자신의 이메일과 일치하는 레코드를 `users` 테이블에 생성할 수 있도록 허용 (`FOR INSERT`).
-    - `Users can update their own profile`: 사용자가 자신의 ID(id)를 최신 Supabase Auth ID로 업데이트할 수 있도록 허용 (`FOR UPDATE`).
-- **영향**: 신규 사용자 등록 및 기존 사용자 ID 마이그레이션이 정상적으로 작동합니다.
+## 🕒 프로젝트 타임라인 및 주요 수정 사항
 
-### 2. API 호출 및 인증 로직 (`AuthContext.jsx`)
-- **인증 방식**: Supabase Auth (Google OAuth)
-- **주요 로직**:
-    - `handleUserSession`: 로그인 시 `users` 테이블에서 이메일로 기존 사용자를 찾습니다.
-    - **ID 매칭 로직**: 기존에 `pending:` 접두사로 시작하던 ID(예: `pending:1773...`)를 구글에서 발급받은 실제 UUID로 업데이트하고, 해당 사용자의 `contacts` 테이블 `assigned_to` 필드도 함께 동기화합니다.
+### 1. 초기 연동 및 배포 (2026.02)
+- **Firebase 연동**: 초기 인증 및 데이터 관리를 위해 Firebase를 통합했습니다.
+- **Vercel 배포**: Vercel을 통한 자동 배포 환경을 구축했습니다.
+- **로그인 오류 수정**: Google, Naver 로그인 시 발생하는 'Access Denied' 오류를 해결하고 Prisma DB 연결을 안정화했습니다.
+- **Git 충돌 해결**: 빌드 오류를 유발하던 Git merge conflict 마커를 제거했습니다.
 
-### 3. 히스토리 관리 및 Git 상황
-- **GitHub 저장소**: `https://github.com/lily-k-222/election-campaign.git`
-- **커밋 완료**: 위 정책들을 포함한 `apply_robust_rls.cjs`, `AI_INSTRUCTIONS.md`, `apply_rls_fix.sql` 파일이 `main` 브랜치에 저장되었습니다.
-- **예방 조치**: 향후 다른 AI 지원 도구가 같은 실수를 반복하지 않도록 프로젝트 루트에 `AI_INSTRUCTIONS.md`를 생성하여 필수 RLS 정책을 명시했습니다.
+### 2. 고도화 및 데이터 정제 (2026.03 초반)
+- **중복 데이터 조사**: 특정 사용자들 간의 중복된 연락처 할당 문제를 조사하고 데이터 무결성을 점검했습니다.
+- **데이터 복구**: Firebase에서 손실된 데이터를 조사하고 복구 방안을 마련했습니다.
 
----
-현재 모든 시스템은 정상 작동 중이며, 사용자는 다시 로그인을 시도하여 권한이 자동 승인/연결되는 것을 확인할 수 있습니다.
+### 3. Supabase 마이그레이션 (2026.03 중반)
+- **인증 시스템 이전**: Firebase Auth에서 Supabase Auth로 마이그레이션을 진행했습니다.
+- **RLS 정책 최적화**: Supabase의 Row Level Security(RLS) 정책을 도입하고 무한 재귀 오류를 해결했습니다.
+- **ID 동기화 로직**: 기존 사용자 ID와 새로운 Supabase UUID 간의 불일치 문제를 해결하기 위해 `AuthContext`에 자동 동기화 로직을 도입했습니다.
+
+### 4. 기능 개선 및 버그 수정 (2026.03 후반)
+- **필터 및 엑셀 내보내기**: 담당자별 필터링 기능과 엑셀 다운로드(`xlsx`) 기능을 정상화했습니다.
+- **에러 리포트 관리**: `ADMIN` 역할이 에러 리포트를 조회하고 상태를 수정할 수 있도록 접근 권한을 확장했습니다.
+- **지표 개선**: 지지 정도 구분 값을 사용자 요청에 맞춰 업데이트했습니다.
+
+### 5. 최근 작업: 로그인 장애 해결 (2026-03-18)
+- **최종 RLS 수정**: `INSERT` 및 `UPDATE` 권한이 부족하여 신규/기존 사용자가 로그인을 완료하지 못하던 문제를 해결했습니다.
+- **영구 가이드 마련**: 향후 유지보수를 위해 `AI_INSTRUCTIONS.md`를 생성하고 깃허브 히스토리를 업데이트했습니다.
+
+## 🛠️ 주요 기술 스택 및 테이블 정보
+
+### 기술 스택
+- **Frontend**: React, Vite, Tailwind CSS
+- **Backend/DB**: Supabase (Auth, PostgreSQL)
+- **Deployment**: Vercel
+
+### 핵심 테이블 구조
+- **`users`**: 사용자 정보, 역할(`ADMIN`, `DEVELOPER`, `VOLUNTEER`, `REJECTED`, `UNAUTHORIZED`), Supabase UUID 관리.
+- **`contacts`**: 캠페인 연락처 정보, `assigned_to` 필드를 통해 담당 사용자(`users.id`)와 연결.
+- **`error_reports`**: 시스템 오류 신고 및 상태(`PENDING`, `FIXED`) 관리.
+
+## 💡 유지보수 안내
+모든 주요 변경 사항은 `apply_robust_rls.cjs`와 같은 자동화 스크립트와 `AI_INSTRUCTIONS.md` 가이드에 반영되어 있습니다. 추가 수정 시 해당 문서들을 먼저 참조하십시오.
