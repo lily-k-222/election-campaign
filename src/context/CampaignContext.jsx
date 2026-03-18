@@ -84,7 +84,14 @@ export const CampaignProvider = ({ children }) => {
                     if (payload.eventType === 'INSERT') {
                         setContacts(prev => [...prev, mapContact(payload.new)]);
                     } else if (payload.eventType === 'UPDATE') {
-                        setContacts(prev => prev.map(c => c.id === payload.new.id ? mapContact(payload.new) : c));
+                        setContacts(prev => {
+                            const exists = prev.some(c => c.id === payload.new.id);
+                            if (exists) {
+                                return prev.map(c => c.id === payload.new.id ? mapContact(payload.new) : c);
+                            }
+                            // If it doesn't exist but now matches our filter, add it
+                            return [...prev, mapContact(payload.new)];
+                        });
                     } else if (payload.eventType === 'DELETE') {
                         setContacts(prev => prev.filter(c => c.id === payload.old.id));
                     }
