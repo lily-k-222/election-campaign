@@ -137,14 +137,36 @@ export const VolunteerDashboard = () => {
     const todaySavedContacts = useMemo(() => {
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const todayString = `[${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         
         return volunteerContacts
             .filter(c => {
-                if (c.status !== 'CALLED' || !c.updatedAt) return false;
-                const updatedTime = new Date(c.updatedAt).getTime();
-                return updatedTime >= startOfToday;
+                if (c.status !== 'CALLED') return false;
+                const isUpdatedToday = c.updatedAt && new Date(c.updatedAt).getTime() >= startOfToday;
+                const isNotedToday = c.notes && c.notes.includes(todayString);
+                return isUpdatedToday || isNotedToday;
             })
-            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+            .map(c => {
+                let sortTime = c.updatedAt ? new Date(c.updatedAt).getTime() : 0;
+                let displayTime = c.updatedAt || new Date().toISOString();
+                
+                if (c.notes && c.notes.includes(todayString)) {
+                    // Extract times like "[2026-03-19 09:41]"
+                    const regex = new RegExp(`\\[(${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} \\d{2}:\\d{2})\\]`, 'g');
+                    let match;
+                    let latestNoteTime = 0;
+                    while ((match = regex.exec(c.notes)) !== null) {
+                        const noteTime = new Date(match[1]).getTime();
+                        if (noteTime > latestNoteTime) latestNoteTime = noteTime;
+                    }
+                    if (latestNoteTime > sortTime) {
+                        sortTime = latestNoteTime;
+                        displayTime = new Date(latestNoteTime).toISOString();
+                    }
+                }
+                return { ...c, sortTime, displayTime };
+            })
+            .sort((a, b) => b.sortTime - a.sortTime);
     }, [volunteerContacts]);
 
     const openContactDetail = (contact) => {
@@ -328,7 +350,7 @@ export const VolunteerDashboard = () => {
                                             </span>
                                         </div>
                                         <div className="text-[11px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors shrink-0">
-                                            {new Date(contact.updatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                                            {new Date(contact.displayTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                     </div>
                                 </div>
