@@ -155,14 +155,16 @@ export const AdminDashboard = () => {
     };
 
     // Debounced stats loader to prevent thrashing
-    const [statsTimeout, setStatsTimeout] = useState(null);
     const debouncedLoadStats = React.useCallback(() => {
         if (statsTimeout) clearTimeout(statsTimeout);
         const timer = setTimeout(() => {
             loadStats();
+            if (activeTab === 'contacts' || activeTab === 'result_detail') {
+                loadContacts();
+            }
         }, 5000); // 5s debounce
         setStatsTimeout(timer);
-    }, [statsTimeout, loadStats]);
+    }, [statsTimeout, loadStats, activeTab]); // Added activeTab dependency
 
     // Initial Stats Load & Real-time Subscription for Dashboard
     React.useEffect(() => {
@@ -1030,6 +1032,10 @@ export const AdminDashboard = () => {
                                                                     </div>
                                                                 ) : (
                                                                     <div className="flex justify-end gap-1.5 p-1 bg-slate-100 rounded-2xl w-max ml-auto shadow-inner border border-slate-200/60">
+                                                                        <button 
+                                                                            onClick={() => handleRoleUpdate(user.id, user.name, 'ADMIN')}
+                                                                            className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'ADMIN' ? 'bg-[#1e3a8a] text-white shadow-sm scale-100' : 'text-slate-500 hover:text-slate-800 scale-95 hover:bg-slate-200/50'}`}
+                                                                        >관리자</button>
                                                                         <button 
                                                                             onClick={() => handleRoleUpdate(user.id, user.name, 'VOLUNTEER')}
                                                                             className={`px-3 py-1.5 text-[13px] font-extrabold rounded-xl transition-all ${user.role === 'VOLUNTEER' ? 'bg-[#1e3a8a] text-white shadow-sm scale-100' : 'text-slate-500 hover:text-slate-800 scale-95 hover:bg-slate-200/50'}`}

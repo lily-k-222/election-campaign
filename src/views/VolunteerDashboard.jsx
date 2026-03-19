@@ -57,7 +57,7 @@ export const VolunteerDashboard = () => {
         };
         
         loadVolunteerData();
-    }, [targetUserId, isAdmin, fetchVolunteerContacts, currentUser.id]);
+    }, [targetUserId, isAdmin, fetchVolunteerContacts, currentUser.id, contacts]);
 
     const handleCallFailedDirect = async (contact) => {
         const now = new Date();
@@ -73,8 +73,13 @@ export const VolunteerDashboard = () => {
         };
 
         console.log('VolunteerDashboard: handleCallFailedDirect', updateData);
-        await updateContact(contact.id, updateData);
-        setVolunteerContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...updateData } : c));
+        const res = await updateContact(contact.id, updateData);
+        
+        if (res.success) {
+            setVolunteerContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...updateData } : c));
+        } else {
+            alert(`통화 실패 기록 중 오류가 발생했습니다: ${res.error?.message || '알 수 없는 오류'}`);
+        }
     };
 
     const stats = targetUserId ? getVolunteerStats(targetUserId) : { progress: 0, total: 0, completed: 0 };
