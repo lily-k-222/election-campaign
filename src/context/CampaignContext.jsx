@@ -56,19 +56,39 @@ export const CampaignProvider = ({ children }) => {
         }
 
         // Fetch contacts assigned to the current user
+        // Fetch contacts assigned to the current user with pagination (>1000 rows limit fix)
         const fetchMyContacts = async () => {
-            // Everyone can have assigned contacts to call
-            const { data, error } = await supabase
-                .from('contacts')
-                .select('*')
-                .eq('assigned_to', user.id);
-            
-            if (error) {
+            try {
+                let allData = [];
+                let from = 0;
+                const pageSize = 1000;
+                let hasMore = true;
+
+                while (hasMore) {
+                    const { data, error } = await supabase
+                        .from('contacts')
+                        .select('*')
+                        .eq('assigned_to', user.id)
+                        .order('id', { ascending: true })
+                        .range(from, from + pageSize - 1);
+                    
+                    if (error) throw error;
+                    
+                    if (data && data.length > 0) {
+                        allData = [...allData, ...data];
+                        from += pageSize;
+                    }
+                    
+                    if (!data || data.length < pageSize) {
+                        hasMore = false;
+                    }
+                }
+                setContacts(allData.map(mapContact));
+            } catch (error) {
                 console.error("Error fetching volunteer contacts:", error);
-            } else {
-                setContacts((data || []).map(mapContact));
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
         fetchMyContacts();
