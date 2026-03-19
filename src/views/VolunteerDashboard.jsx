@@ -25,6 +25,10 @@ export const VolunteerDashboard = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const contactsPerPage = 10;
     
+    // Today's Saved List Pagination State
+    const [todayCurrentPage, setTodayCurrentPage] = useState(1);
+    const todayContactsPerPage = 10;
+    
     // Status Modal State
     const [dialogConfig, setDialogConfig] = useState({ isOpen: false, type: 'alert', title: '', message: '', onConfirm: null });
 
@@ -168,6 +172,14 @@ export const VolunteerDashboard = () => {
             })
             .sort((a, b) => b.sortTime - a.sortTime);
     }, [volunteerContacts]);
+
+    const totalTodayContacts = todaySavedContacts.length;
+    const totalTodayPages = Math.ceil(totalTodayContacts / todayContactsPerPage) || 1;
+    
+    const displayTodayContacts = useMemo(() => {
+        const start = (todayCurrentPage - 1) * todayContactsPerPage;
+        return todaySavedContacts.slice(start, start + todayContactsPerPage);
+    }, [todaySavedContacts, todayCurrentPage]);
 
     const openContactDetail = (contact) => {
         setSelectedContact(contact);
@@ -332,7 +344,39 @@ export const VolunteerDashboard = () => {
                         </div>
                     ) : (
                         <div className="flex flex-col gap-2 relative z-10">
-                            {todaySavedContacts.slice(0, 5).map(contact => (
+                            {/* Today's List Pagination Controls */}
+                            {totalTodayContacts > todayContactsPerPage && (
+                                <div className="flex justify-between items-center mb-2 p-2 bg-slate-50 rounded-xl border border-slate-100/50">
+                                    <div className="text-[11px] text-slate-500 font-bold px-2">
+                                        {(todayCurrentPage - 1) * todayContactsPerPage + 1} - {Math.min(todayCurrentPage * todayContactsPerPage, totalTodayContacts)} / {totalTodayContacts}
+                                    </div>
+                                    
+                                    <div className="flex bg-slate-200/50 rounded-lg p-1 items-center gap-2">
+                                        <button 
+                                            onClick={() => setTodayCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={todayCurrentPage === 1}
+                                            className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1"
+                                        >
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> 이전
+                                        </button>
+                                        
+                                        <div className="flex items-center gap-1 px-1">
+                                            <span className="text-[11px] font-bold text-slate-700">{todayCurrentPage}</span>
+                                            <span className="text-[11px] font-bold text-slate-400">/ {totalTodayPages}</span>
+                                        </div>
+
+                                        <button 
+                                            onClick={() => setTodayCurrentPage(p => Math.min(totalTodayPages, p + 1))}
+                                            disabled={todayCurrentPage === totalTodayPages}
+                                            className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white shadow-sm disabled:opacity-50 disabled:shadow-none hover:bg-gray-50 flex items-center gap-1"
+                                        >
+                                            다음 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {displayTodayContacts.map(contact => (
                                 <div key={contact.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.02)] hover:border-blue-200 transition-all group">
                                     <div className="flex items-center gap-3">
                                         <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-[#1e3a8a] font-black text-[14px] border border-blue-100">
@@ -349,17 +393,14 @@ export const VolunteerDashboard = () => {
                                                 {contact.notes ? contact.notes.split('\n').filter(l => l.includes(']')).pop()?.split(']').pop()?.trim() || '기록됨' : '기록됨'}
                                             </span>
                                         </div>
-                                        <div className="text-[11px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors shrink-0">
-                                            {new Date(contact.displayTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                                        <div className="flex flex-col items-end gap-1">
+                                            <div className="text-[11px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors shrink-0">
+                                                {new Date(contact.displayTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             ))}
-                            {todaySavedContacts.length > 5 && (
-                                <div className="text-center mt-1">
-                                    <p className="text-[11px] text-slate-400 font-bold">외 {todaySavedContacts.length - 5}명의 명단이 더 있습니다.</p>
-                                </div>
-                            )}
                         </div>
                     )}
                 </div>
