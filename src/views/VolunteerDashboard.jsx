@@ -133,6 +133,20 @@ export const VolunteerDashboard = () => {
         return myContacts.slice(start, start + contactsPerPage);
     }, [myContacts, currentPage]);
 
+    // --- Today's Saved Contacts logic ---
+    const todaySavedContacts = useMemo(() => {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        
+        return volunteerContacts
+            .filter(c => {
+                if (c.status !== 'CALLED' || !c.updatedAt) return false;
+                const updatedTime = new Date(c.updatedAt).getTime();
+                return updatedTime >= startOfToday;
+            })
+            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    }, [volunteerContacts]);
+
     const openContactDetail = (contact) => {
         setSelectedContact(contact);
         setIsDetailModalOpen(true);
@@ -268,6 +282,62 @@ export const VolunteerDashboard = () => {
                                     ></div>
                                 </div>
                             </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* 1.5) Today's Saved List (Reassurance Section) */}
+                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 p-6 flex flex-col relative overflow-hidden">
+                    {/* Decorative Background Element */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-bl-full -mr-10 -mt-10 z-0" />
+                    
+                    <div className="flex justify-between items-center mb-4 relative z-10">
+                        <div className="flex flex-col">
+                            <h2 className="text-[18px] font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+                                <CheckCircle2 size={20} className="text-green-500" />
+                                오늘 내가 저장한 명단
+                            </h2>
+                            <p className="text-[12px] text-slate-500 font-bold mt-0.5">실시간으로 저장 내역이 확인됩니다</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-black border border-green-100 shadow-sm animate-pulse">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" /> LIVE
+                        </div>
+                    </div>
+
+                    {todaySavedContacts.length === 0 ? (
+                        <div className="py-8 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 relative z-10">
+                            <p className="text-slate-400 font-bold text-[13px]">오늘 아직 저장된 명단이 없습니다.</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-2 relative z-10">
+                            {todaySavedContacts.slice(0, 5).map(contact => (
+                                <div key={contact.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.02)] hover:border-blue-200 transition-all group">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-[#1e3a8a] font-black text-[14px] border border-blue-100">
+                                            {contact.name.substring(0, 1)}
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="font-extrabold text-slate-800 text-[14px]">{contact.name}</span>
+                                            <span className="text-[11px] font-bold text-[#1e3a8a]">{contact.supportLevel || '성향 미확인'}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="hidden sm:flex flex-col items-end max-w-[150px]">
+                                            <span className="text-[10px] text-slate-400 font-medium truncate w-full text-right">
+                                                {contact.notes ? contact.notes.split('\n').filter(l => l.includes(']')).pop()?.split(']').pop()?.trim() || '기록됨' : '기록됨'}
+                                            </span>
+                                        </div>
+                                        <div className="text-[11px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors shrink-0">
+                                            {new Date(contact.updatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            {todaySavedContacts.length > 5 && (
+                                <div className="text-center mt-1">
+                                    <p className="text-[11px] text-slate-400 font-bold">외 {todaySavedContacts.length - 5}명의 명단이 더 있습니다.</p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

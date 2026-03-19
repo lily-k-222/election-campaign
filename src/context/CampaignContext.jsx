@@ -20,7 +20,8 @@ const mapContact = (c) => {
         surveyResult: c.survey_result || null,
         notes: c.notes || '',
         assignedTo: c.assigned_to,
-        callGuide: c.call_guide || ''
+        callGuide: c.call_guide || '',
+        updatedAt: c.updated_at
     };
 };
 
@@ -246,7 +247,8 @@ export const CampaignProvider = ({ children }) => {
                 .update({
                     status: 'CALLED',
                     survey_result: result,
-                    notes: notes
+                    notes: notes,
+                    updated_at: new Date().toISOString()
                 })
                 .eq('id', contactId);
             
@@ -271,6 +273,7 @@ export const CampaignProvider = ({ children }) => {
     const updateContact = async (contactId, updatedData) => {
         try {
             const payload = unmapContact(updatedData);
+            payload.updated_at = new Date().toISOString();
 
             const { error } = await supabase
                 .from('contacts')
