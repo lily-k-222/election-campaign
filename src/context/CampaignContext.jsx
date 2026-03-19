@@ -338,17 +338,38 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
-    // Admin action: Fetch contacts for a specific volunteer (one-time fetch)
+    // Admin/Volunteer action: Fetch contacts for a specific volunteer (handles > 1000 rows)
     const fetchVolunteerContacts = async (volunteerId) => {
-        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return [];
+        if (!user) return [];
+        // Block volunteers from fetching other people's contacts
+        if (user.role === 'VOLUNTEER' && user.id !== volunteerId) return [];
+        
         try {
-            const { data, error } = await supabase
-                .from('contacts')
-                .select('*')
-                .eq('assigned_to', volunteerId);
-            
-            if (error) throw error;
-            return (data || []).map(mapContact);
+            let allData = [];
+            let from = 0;
+            const pageSize = 1000;
+            let hasMore = true;
+
+            while (hasMore) {
+                const { data, error } = await supabase
+                    .from('contacts')
+                    .select('*')
+                    .eq('assigned_to', volunteerId)
+                    .order('id', { ascending: true })
+                    .range(from, from + pageSize - 1);
+                
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    allData = [...allData, ...data];
+                    from += pageSize;
+                }
+                
+                if (!data || data.length < pageSize) {
+                    hasMore = false;
+                }
+            }
+            return allData.map(mapContact);
         } catch (error) {
             console.error('Failed to fetch volunteer contacts:', error);
             return [];
@@ -440,26 +461,37 @@ export const CampaignProvider = ({ children }) => {
         if (!volunteerIds || volunteerIds.length === 0) return {};
         
         try {
-            // OPTIMIZATION: Instead of 2*N queries, fetch all assigned contacts once
-            // and aggregate in memory. For 7-10k contacts, this is vastly faster (hundreds of ms vs 20s).
-            const { data, error } = await supabase
-                .from('contacts')
-                .select('assigned_to, status')
-                .not('assigned_to', 'is', null)
-                .in('assigned_to', volunteerIds);
-            
-            if (error) throw error;
+            let allData = [];
+            let from = 0;
+            const pageSize = 1000;
+            let hasMore = true;
+
+            while (hasMore) {
+                const { data, error } = await supabase
+                    .from('contacts')
+                    .select('assigned_to, status')
+                    .not('assigned_to', 'is', null)
+                    .in('assigned_to', volunteerIds)
+                    .range(from, from + pageSize - 1);
+                
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    allData = [...allData, ...data];
+                    from += pageSize;
+                }
+                
+                if (!data || data.length < pageSize) {
+                    hasMore = false;
+                }
+            }
 
             const statsMap = {};
-            // Initialize for all requested IDs
             volunteerIds.forEach(vid => {
                 statsMap[vid] = { total: 0, completed: 0, remaining: 0, progress: 0 };
             });
 
-            // Aggregate with ID format fallback if possible
-            // Note: If some contacts have old ID formats, they will still be counted 
-            // if those IDs are in the volunteerIds list.
-            (data || []).forEach(contact => {
+            allData.forEach(contact => {
                 const vid = contact.assigned_to;
                 if (statsMap[vid]) {
                     statsMap[vid].total++;
@@ -469,7 +501,6 @@ export const CampaignProvider = ({ children }) => {
                 }
             });
 
-            // Final calculation
             volunteerIds.forEach(vid => {
                 const s = statsMap[vid];
                 s.remaining = s.total - s.completed;
