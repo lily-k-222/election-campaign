@@ -85,6 +85,7 @@ export const AdminDashboard = () => {
     const [volunteerStatsMap, setVolunteerStatsMap] = useState({});
     const [isStatsLoading, setIsStatsLoading] = useState(false);
     const [statsError, setStatsError] = useState(null);
+    const [statsTimeout, setStatsTimeout] = useState(null);
 
     const showDialog = (type, title, message, onConfirm = null) => {
         setDialogConfig({ isOpen: true, type, title, message, onConfirm });
