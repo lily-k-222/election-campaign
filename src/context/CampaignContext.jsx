@@ -219,6 +219,25 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
+    // Action: Add a permanent log entry
+    const addCallLog = async ({ contactId, actionType, result = '', notes = '', metadata = {} }) => {
+        if (!user) return;
+        try {
+            await supabase.from('call_logs').insert([{
+                contact_id: contactId,
+                user_id: user.id,
+                user_name: user.name,
+                action_type: actionType,
+                result: result,
+                notes: notes,
+                metadata: metadata
+            }]);
+        } catch (e) {
+            console.error('Logging failed:', e);
+            // Non-blocking
+        }
+    };
+
     // Action: Record call result
     const recordCall = async (contactId, result, notes = '') => {
         // Optimistic update
@@ -235,11 +254,18 @@ export const CampaignProvider = ({ children }) => {
                 .eq('id', contactId);
             
             if (error) throw error;
+
+            // Audit Log
+            addCallLog({
+                contactId,
+                actionType: 'CALL_SUCCESS',
+                result,
+                notes
+            });
+
             return { success: true };
         } catch (error) {
             console.error('Failed to sync call record:', error);
-            // Revert optimistic update on error
-            // fetchMyContacts(); // One way to sync back
             return { success: false, error };
         }
     };
@@ -258,6 +284,17 @@ export const CampaignProvider = ({ children }) => {
                 .eq('id', contactId);
             
             if (error) throw error;
+
+            // Audit Log (if status or notes or supportLevel changed)
+            if (updatedData.status || updatedData.notes || updatedData.supportLevel) {
+                addCallLog({
+                    contactId,
+                    actionType: updatedData.status === 'CALLED' ? 'CALL_SAVE' : 'UPDATE',
+                    result: updatedData.supportLevel || updatedData.surveyResult || '',
+                    notes: updatedData.notes || ''
+                });
+            }
+
             return { success: true };
         } catch (error) {
             console.error('Failed to update contact:', error);
@@ -518,6 +555,27 @@ export const CampaignProvider = ({ children }) => {
         }
     };
 
+    const fetchCallLogs = async (contactId = null) => {
+        if (!user || (user.role !== 'ADMIN' && user.role !== 'DEVELOPER')) return [];
+        try {
+            let query = supabase
+                .from('call_logs')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (contactId) {
+                query = query.eq('contact_id', contactId);
+            }
+            
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Failed to fetch call logs:', error);
+            return [];
+        }
+    };
+
     const updateErrorReportStatus = async (reportId, status) => {
         if (!user || (user.role !== 'DEVELOPER' && user.role !== 'ADMIN')) return { success: false, error: 'Unauthorized' };
         try {
@@ -550,6 +608,7 @@ export const CampaignProvider = ({ children }) => {
         fetchContactsPaginated,
         fetchVolunteerContacts,
         fetchAllContactsForExport,
+        fetchCallLogs,
         getVolunteerStats,
         fetchAllVolunteerStats,
         getCampaignStats,

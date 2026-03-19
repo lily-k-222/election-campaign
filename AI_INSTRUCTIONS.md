@@ -30,8 +30,9 @@ The `public.users` table MUST ALWAYS have the following policies to support the 
 - The project uses **Supabase OAuth (Google)**.
 - Authentication logic is centralized in `src/context/AuthContext.jsx`.
 - **Migration Logic**: When a user logs in, the app checks if `users` table already has their email. If it does but the ID doesn't match the new Supabase Auth ID, it **must** update the `users.id` and any corresponding `contacts.assigned_to` fields. **DO NOT remove this logic.**
+- **Call Logging**: All call-related updates (`recordCall`, `updateContact` for call status) **must** also be recorded in the `call_logs` table for audit trail.
 
-## 📂 Git & Deployment
-- Production: `https://github.com/lily-k-222/election-campaign.git` (main branch)
-- Hosting: Vercel
-- **DO NOT** commit the `.env` file.
+## 📝 Documentation Rules
+- **CURRENT_STATUS.md**: This file must be updated after every significant change or at the end of a task.
+- **Format**: Each entry must follow the structure: **[Date] Title**, **Problem**, **Solution (수정방법)**, and **Future Plan (향후 계획)**.
+- Maintain the most recent logs at the top.
